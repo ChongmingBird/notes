@@ -2025,6 +2025,143 @@ document.body.appendChild(divObj);
 "^[.\\w_]{6,20}$"
 ```
 
+# 【JSP】
+
+## 简介
+
+> JSP（全称：Java Server Pages）：Java 服务端页面。
+>
+> JSP是一种动态的网页技术，其中既可以定义 HTML、JS、CSS等静态内容，还可以定义 Java代码的动态内容，也就是 `JSP = HTML + Java`。
+>
+> 如下就是jsp代码：
+>
+> ```java
+> <html>
+>     <head>
+>         <title>Title</title>
+>     </head>
+>     <body>
+>         <h1>JSP,Hello World</h1>
+>         <%
+>         	System.out.println("hello,jsp~");
+>         %>
+>     </body>
+> </html>
+> ```
+
+## 快速入门
+
+- **导入JSP依赖**
+
+  ```xml
+  <!-- https://mvnrepository.com/artifact/javax.servlet.jsp/javax.servlet.jsp-api -->
+  <dependency>
+      <groupId>javax.servlet.jsp</groupId>
+      <artifactId>javax.servlet.jsp-api</artifactId>
+      <version>2.3.3</version>
+      <scope>provided</scope>
+  </dependency>
+  ```
+
+  该依赖的`scope`必须设置为`provided`，因为tomcat中有这个jar包了，所以在打包时不希望将该依赖打进到工程的war包中。
+
+- **创建JSP页面**
+
+  在`webapp`目录下创建一个hello.jsp页面
+
+- **编写代码**
+
+  ```java
+  <%@ page contentType="text/html;charset=UTF-8" language="java" %>
+  <html>
+  <head>
+      <title>Title</title>
+  </head>
+  <body>
+      <h1>hello jsp</h1>
+      <%
+          System.out.println("hello,jsp~");
+      %>
+  </body>
+  </html>
+  ```
+
+- 启动tomcat并在浏览器中输入`http://localhost:8080/web-demo/hello.jsp`
+
+  ![image-20220704114004620](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20220704114004620.png)
+
+## 原理
+
+![](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20210818111039350.png)
+
+**JSP本质上就是一个 Servlet**
+
+1. 浏览器第一次访问`hello.jsp`页面
+2. `tomcat`会将`hello.jsp`转换为名为`hello_jsp.java`的一个`Servlet`
+3. `tomcat`再将转换的`servlet`编译成字节码文件`hello_jsp.class`
+4. `tomcat` 会执行该字节码文件，向外提供服务
+
+## 脚本
+
+> JSP脚本用于在 JSP页面内定义 Java代码。
+
+### 脚本分类
+
+JSP 脚本有如下三个分类：
+
+* `<%...%>`：内容会直接放到`_jspService()`方法之中
+* `<%=...%>`：内容会放到`out.print()`中，作为`out.print()`的参数
+* `<%!...%>`：内容会放到`_jspService()`方法之外，被类直接包含
+
+**代码演示：**
+
+- `<%...%>`
+
+  在 `hello.jsp` 中书写
+
+  ```jsp
+  <%
+      System.out.println("hello,jsp~");
+      int i = 3;
+  %>
+  ```
+
+  通过浏览器访问 `hello.jsp` 后，查看转换的 `hello_jsp.java` 文件，i 变量定义在了 `_jspService()` 方法中
+
+​		<img src="https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20210818123606231.png" alt="image-20210818123606231" style="zoom:80%;" />
+
+- `<%=...%>`
+
+  在 `hello.jsp` 中书写
+
+  ```jsp
+  <%="hello"%>
+  <%=i%>
+  ```
+
+  通过浏览器访问 `hello.jsp` 后，查看转换的 `hello_jsp.java` 文件，该脚本的内容被放在了 `out.print()` 中，作为参数
+
+​		<img src="https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20210818123820571.png" alt="image-20210818123820571" style="zoom:80%;" />
+
+- `<%!...%>`
+
+  在 `hello.jsp` 中书写
+
+  ```jsp
+  <%!
+      void  show(){}
+  	String name = "zhangsan";
+  %>
+  ```
+
+  通过浏览器访问 `hello.jsp` 后，查看转换的 `hello_jsp.java` 文件，该脚本的内容被放在了成员位置
+
+  <img src="https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20210818123946272.png" alt="image-20210818123946272" style="zoom:80%;" />
+
+  
+
+
+
 # 【AJAX】
 
 ## 简介
