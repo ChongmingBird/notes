@@ -964,3 +964,448 @@ resposne.sendRedirect("/web-demo/resp2")
 
 
 
+# 【MVC模式】
+
+## MVC模式
+
+MVC是一种分层开发的模式，其中：
+
+* M：Model，业务模型，处理业务
+
+* V：View，视图，界面展示
+
+* C：Controller，控制器，处理请求，调用模型和视图
+
+<img src="https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20210818163348642.png" alt="image-20210818163348642" style="zoom:70%;" />
+
+控制器（serlvlet）用来接收浏览器发送过来的请求，控制器调用模型（JavaBean）来获取数据，比如从数据库查询数据；控制器获取到数据后再交由视图（JSP）进行数据展示。
+
+**MVC 好处：**
+
+* 职责单一，互不影响，每个角色做它自己的事，各司其职。
+* 有利于分工协作。
+* 有利于组件重用
+
+## 三层架构
+
+三层架构是将项目分成了三个层面，分别是表现层、业务逻辑层、数据访问层。
+
+<img src="https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20210818164301154.png" alt="image-20210818164301154" style="zoom:60%;" />
+
+* 数据访问层：对数据库的CRUD基本操作
+* 业务逻辑层：对业务逻辑进行封装，组合数据访问层层中基本功能，形成复杂的业务逻辑功能。例如 `注册业务功能` ，我们会先调用 `数据访问层` 的 `selectByName()` 方法判断该用户名是否存在，如果不存在再调用 `数据访问层` 的 `insert()` 方法进行数据的添加操作
+* 表现层：接收请求，封装数据，调用业务逻辑层，响应数据
+
+而整个流程是，浏览器发送请求，表现层的servlet接收请求并调用业务逻辑层的方法进行业务逻辑处理，而业务逻辑层方法调用数据访问层方法进行数据的操作，依次返回到serlvet，然后servlet将数据交由 JSP 进行展示。
+
+三层架构的每一层都有特有的包名称：
+
+* 表现层： `controller` 或者 `web`
+* 业务逻辑层：`service`
+* 数据访问层：`dao`或`mapper`
+
+## 联系
+
+<img src="https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20210818165808589.png" alt="image-20210818165808589" style="zoom:60%;" />
+
+MVC模式是一个大的概念，三层架构是对MVC模式实现架构的思想。 如果按照要求将不同层的代码写在不同的包下，每一层里功能职责做到单一，将来如果将表现层的技术换掉，业务逻辑层和数据访问层的代码则不需要发生变化。
+
+# 【会话技术】
+
+## 概述
+
+**会话:** 
+
+用户打开浏览器，访问web服务器的资源，会话建立，直到有一方断开连接，会话结束。在一次会话中可以包含多次请求和响应。
+
+* 从浏览器发出请求到服务端响应数据给前端之后，一次会话(在浏览器和服务器之间)就被建立了
+* 会话被建立后，如果浏览器或服务端都没有被关闭，则会话就会持续建立着
+* 浏览器和服务器就可以继续使用该会话进行请求发送和响应，上述的整个过程就被称之为会话。
+
+例如：访问京东，当打开浏览器进入京东首页后，浏览器和京东的服务器之间就建立了一次会话。后面的搜索商品，查看商品的详情，加入购物车等都是在这一次会话中完成。
+
+**会话跟踪：**
+
+一种维护浏览器状态的方法，服务器需要识别多次请求是否来自于同一浏览器，以便在同一次会话的多次请求间共享数据。
+
+* 服务器会收到多个请求，这多个请求可能来自多个浏览器，如上图中的6个请求来自3个浏览器
+* 服务器需要用来识别请求是否来自同一个浏览器
+* 服务器用来识别浏览器的过程，这个过程就是会话跟踪
+* 服务器识别浏览器后就可以在同一个会话中多次请求之间来共享数据
+
+**浏览器和服务器不支持数据共享的原因：**
+
+* 浏览器和服务器之间使用的是HTTP请求来进行数据传输
+* HTTP协议是无状态的，每次浏览器向服务器请求时，服务器都会将该请求视为新的请求
+* HTTP协议设计成无状态的目的是让每次请求之间相互独立，互不影响
+* 请求与请求之间独立后，就无法实现多次请求之间的数据共享
+
+**会话跟踪技术：**
+
+- 客户端会话跟踪技术：Cookie
+- 服务端会话跟踪技术：Session
+
+## Cookie
+
+### 概念
+
+**Cookie:** 客户端会话技术，将数据保存到客户端，以后每次请求都携带Cookie数据进行访问。
+
+**工作流程：**
+
+* 服务端提供了两个Servlet，分别是ServletA和ServletB。
+* 浏览器发送HTTP请求1给服务端，服务端ServletA接收请求并进行业务处理。
+* 服务端ServletA在处理的过程中可以创建一个Cookie对象并将`name=zs`的数据存入Cookie。
+* 服务端ServletA在响应数据的时候，会把Cookie对象响应给浏览器。
+* 浏览器接收到响应数据，会把Cookie对象中的数据存储在浏览器内存中，此时浏览器和服务端就建立了一次会话。
+* 在同一次会话中，浏览器再次发送HTTP请求2给服务端ServletB，浏览器会携带Cookie对象中的所有数据。
+* ServletB接收到请求和数据后，就可以获取到存储在Cookie对象中的数据，这样同一个会话中的多次请求之间就实现了数据共享。
+
+### 基本使用
+
+#### 发送Cookie
+
+- 创建Cookie对象，并设置数据
+
+```java
+Cookie cookie = new Cookie("key","value");
+```
+
+- 发送Cookie到客户端，使用response对象
+
+```java
+response.addCookie(cookie);
+```
+
+**代码演示：**
+
+- Servlet：
+
+```java
+@WebServlet(name = "ServletCookie", value = "/ServletCookie")
+public class ServletCookie extends HttpServlet {
+    @Override
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        // 1.创建Cookie对象
+        Cookie cookie = new Cookie("username", "zc");
+        // 2.发送Cookie，response
+        response.addCookie(cookie);
+    }
+
+    @Override
+    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        this.doGet(request, response);
+    }
+}
+```
+
+- 启动测试，在浏览器中查看Cookie对象中的值
+
+![image-20220708101055021](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20220708101055021.png)
+
+#### 获取Cookie
+
+- 获取客户端携带的所有Cookie，使用request
+
+```java
+Cookie[] cookies = request.getCookies();
+```
+
+- 遍历数组，获取每一个Cookie对象
+
+```java
+for(Cookie cookie : cookies) {
+    
+}
+```
+
+- 使用Cookie对象方法获取数据
+
+```java
+cookie.getName();
+cookie.getValue();
+```
+
+**代码演示：**
+
+- Servlet：
+
+```java
+@WebServlet(name = "ServletCookie2", value = "/ServletCookie2")
+public class ServletCookie2 extends HttpServlet {
+    @Override
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        // 1.获取Cookie数组
+        Cookie[] cookies = request.getCookies();
+        // 2.遍历数组
+        for (Cookie cookie : cookies) {
+            // 3.获取数据
+            String name = cookie.getName();
+            if ("username".equals(name)) {
+                String value = cookie.getValue();
+                System.out.println(name + ": " + value);
+                break;
+            }
+        }
+    }
+
+    @Override
+    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        this.doGet(request, response);
+    }
+}
+```
+
+- 启动浏览器，先发送Cookie，再请求获取Cookie，可以在控制台上看到结果：
+
+```
+username: zc
+```
+
+### 原理
+
+对于Cookie的实现原理是基于HTTP协议的，其中涉及到HTTP协议中的两个请求头信息:
+
+* **响应头:** `set-cookie`
+* **请求头:** `cookie`
+
+![1629393289338](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-master1629393289338.png)
+
+- Tomcat服务器都是基于HTTP协议来响应数据
+- **当Tomcat发现后端要返回的是一个Cookie对象之后，Tomcat就会在响应头中添加一行数据`Set-Cookie:username=zs`**
+- 浏览器获取到响应结果后，从响应头中就可以获取到`Set-Cookie`对应值`username=zs`,并将数据存储在浏览器的内存中
+- 浏览器再次发送请求的时候，浏览器会自动在请求头中添加`Cookie: username=zs`发送给服务端
+- **Request对象会把请求头中cookie对应的值封装成一个个Cookie对象，最终形成一个数组**
+- 通过Request对象获取到Cookie数组后，就可以从中获取自己需要的数据
+
+### 持久化存储
+
+默认情况下，Cookie存储在浏览器内存中，当浏览器关闭，Cookie便会失效
+
+**Cookie持久化存储：**
+
+```java
+setMaxAge(int seconds);
+
+参数值:
+1.正数：
+    将Cookie写入浏览器所在电脑的硬盘，持久化存储。到时间自动删除，单位秒。
+    
+2.负数：
+    默认值，Cookie在当前浏览器内存中，当浏览器关闭，则Cookie被销毁
+    
+3.零：
+    删除对应Cookie
+```
+
+### 存储中文
+
+Cookie不能直接存储中文，如果有这方便的需求，可以对中文进行转码
+
+- **发送Cookie：**
+
+```java
+// 发送Cookie
+String value = "张三";
+// 对中文进行URL编码
+value = URLEncoder.encode(value, "UTF-8");
+System.out.println("存储数据："+value);
+// 1.将编码后的值存入Cookie中
+Cookie cookie = new Cookie("username",value);
+// 设置存活时间，7天
+cookie.setMaxAge(60*60*24*7);
+// 2.发送Cookie，response
+response.addCookie(cookie);
+```
+
+- **获取Cookie：**
+
+```java
+// 获取Cookie
+//1. 获取Cookie数组
+Cookie[] cookies = request.getCookies();
+//2. 遍历数组
+for (Cookie cookie : cookies) {
+    //3. 获取数据
+    String name = cookie.getName();
+    if("username".equals(name)){
+        // 获取的是URL编码后的值 %E5%BC%A0%E4%B8%89
+        String value = cookie.getValue();
+        // URL解码
+        value = URLDecoder.decode(value,"UTF-8");
+        // value解码后为张三
+        System.out.println(name + ":" + value);
+        break;
+    }
+}
+```
+
+## Session
+
+### 概念
+
+**Session:** 服务端会话跟踪技术，将数据保存到服务端。
+
+* Session是存储在服务端而Cookie是存储在客户端
+* 存储在客户端的数据容易被窃取和截获，存在很多不安全的因素
+* 存储在服务端的数据相比于客户端来说就更安全
+
+**工作流程：**
+
+* 在服务端的AServlet获取一个Session对象，把数据存入其中
+* 在服务端的BServlet获取到相同的Session对象，从中取出数据
+
+### 基本使用
+
+在JavaEE中提供了HttpSession接口，来实现一次会话的多次请求之间数据共享功能。
+
+**使用步骤：**
+
+- 获取Session对象，使用request对象
+
+```java
+HttpSession session = request.getSession();
+```
+
+- Session对象提供的功能
+
+  - 存储数据到session域中
+
+    ```java
+    void setAttribute(String name, Object o)
+    ```
+
+  - 根据key获取值
+
+    ```java
+    Object getAttribute(String name)
+    ```
+
+  - 根据key删除该键值对
+
+    ```java
+    void removeAttribute(String name)
+    ```
+
+**代码演示：**
+
+- ServletA：
+
+```java
+@WebServlet(name = "ServletA", value = "/ServletA")
+public class ServletA extends HttpServlet {
+    @Override
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        // 1. 获取Session对象
+        HttpSession session = request.getSession();
+        // 2. 存储数据
+        session.setAttribute("username", "zs");
+    }
+
+    @Override
+    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        this.doGet(request, response);
+    }
+}
+```
+
+- ServletB：
+
+```java
+@WebServlet(name = "ServletB", value = "/ServletB")
+public class ServletB extends HttpServlet {
+    @Override
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        // 1.获取Session对象
+        HttpSession session = request.getSession();
+        // 2.获取数据
+        Object username = session.getAttribute("username");
+        System.out.println(username);
+    }
+
+    @Override
+    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        this.doGet(request, response);
+    }
+}
+```
+
+- 浏览器中测试，可以发送ServletB请求后可以在控制台看到数据
+
+### 原理
+
+Session是基于Cookie实现的。
+
+Session要想实现一次会话多次请求之间的数据共享，就必须要保证多次请求获取Session的对象是同一个。
+
+- ServletA在第一次获取session对象的时候，session对象会有一个唯一的标识，假如是`id:10`。
+
+- ServletA在session中存入其他数据并处理完成所有业务后，需要通过Tomcat服务器响应结果给浏览器，Tomcat服务器发现业务处理中使用了session对象，**就会把session的唯一标识`id:10`当做一个cookie，添加`Set-Cookie:JESSIONID=10`到响应头中,** 并响应给浏览器。
+- 浏览器接收到响应结果后，**会把响应头中的coookie数据存储到浏览器的内存中。** 浏览器在同一会话中访问ServletB的时候，会把cookie中的数据**按照`cookie: JESSIONID=10`的格式添加到请求头** 中并发送给服务器Tomcat。
+- ServletB获取到请求后，**从请求头中就读取cookie中的JSESSIONID值为10，然后就会到服务器内存中寻找`id:10`的session对象，如果找到了，就直接返回该对象，如果没有，则新创建一个session对象**
+- 关闭并重新打开浏览器后，因为浏览器的cookie已被销毁，所以就没有JESSIONID的数据，服务端就会创建一个全新的session对象
+
+### 钝化与活化
+
+正常启动关闭Tomcat服务器时，Session会在服务端中被保存下来
+
+**正常关闭Tomcat：**
+
+- 启动：`bin\startup.bat`
+- 关闭：`bin\shutdown.bat`
+
+**实现原理：** Session的钝化与活化
+
+- 钝化：在服务器正常关闭后，Tomcat会自动将Session数据写入硬盘的文件中
+
+  钝化的数据路径为:`项目目录\target\tomcat\work\Tomcat\localhost\项目名称\SESSIONS.ser`
+
+- 活化：再次启动服务器后，从文件中加载数据到Session中
+
+  数据加载到Session中后，路径中的`SESSIONS.ser`文件会被删除掉
+
+### Session销毁
+
+**session的销毁会有两种方式:**
+
+- 默认情况下，无操作，30分钟自动销毁
+
+  可以在web.xml配置文件中修改销毁时间
+
+  ```xml
+  <?xml version="1.0" encoding="UTF-8"?>
+  <web-app xmlns="http://xmlns.jcp.org/xml/ns/javaee"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee http://xmlns.jcp.org/xml/ns/javaee/web-app_3_1.xsd"
+           version="3.1">
+  	<!-- 修改销毁时间为100秒 -->
+      <session-config>
+          <session-timeout>100</session-timeout>
+      </session-config>
+  </web-app>
+  ```
+
+- 调用Session对象的invalidate()进行销毁
+
+  ```java
+  session.invalidate();
+  ```
+
+## Cookie和Session的区别
+
+**区别:**
+
+|      区别      |        Cookie        |    Session     |
+| :------------: | :------------------: | :------------: |
+|  **存储位置**  |     存储在客户端     |  存储在服务端  |
+|   **安全性**   |        不安全        |      安全      |
+|  **数据大小**  |       最大3kb        |   无大小限制   |
+|  **存储时间**  | 默认浏览器关闭则失效 |   默认30分钟   |
+| **服务器性能** |   不占用服务器资源   | 占用服务器资源 |
+
+**应用场景：**
+
+* Cookie用来保证用户在未登录情况下的身份识别
+* Session用来保存用户登录后的数据
+
+# 【Filter】

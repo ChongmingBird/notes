@@ -2105,7 +2105,7 @@ document.body.appendChild(divObj);
 
 > JSP脚本用于在 JSP页面内定义 Java代码。
 
-### 脚本分类
+
 
 JSP 脚本有如下三个分类：
 
@@ -2161,6 +2161,333 @@ JSP 脚本有如下三个分类：
   
 
 
+
+## 缺点
+
+由于 JSP页面内，既可以定义 HTML 标签，又可以定义 Java代码，造成了以下问题：
+
+* **书写麻烦:** 特别是复杂的页面，既要写 HTML 标签，还要写 Java 代码
+
+* **阅读麻烦:** 前端和后端混在一起
+
+* **复杂度高:** 运行需要依赖于各种环境，JRE，JSP容器，JavaEE…
+
+* **占内存和磁盘:** JSP会自动生成.java和.class文件占磁盘，运行的是.class文件占内存
+
+* **调试困难:** 出错后，需要找到自动生成的.java文件进行调试
+
+* **不利于团队协作:** 前端人员不会 Java，后端人员不精HTML
+
+  如果页面布局发生变化，前端工程师对静态页面进行修改，然后再交给后端工程师，由后端工程师再将该页面改为 JSP 页面，很麻烦，不利于团队写作
+
+由于上述的问题， JSP 已逐渐退出历史舞台，以后开发更多的是使用 HTML +  Ajax来替代。
+
+## EL表达式
+
+### 概述
+
+> EL（全称Expression Language ）表达式语言，用于简化 JSP 页面内的 Java 代码。
+>
+> **EL 表达式的主要作用是获取数据。** 其实就是从域对象中获取数据，然后将数据展示在页面上。
+>
+> 而 EL 表达式的语法也比较简单，`${expression}` 
+>
+> 例如：${brands} 就是获取域中存储的key为brands的数据。
+
+### 代码演示
+
+- 定义servlet，在 servlet 中封装一些数据并存储到 request 域对象中并转发到 `el-demo.jsp` 页面。
+
+```java
+@WebServlet(name = "ServlerDemo1", value = "/demo1")
+public class ServlerDemo1 extends HttpServlet {
+    @Override
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        // 1. 准备数据
+        List<Brand> brands = new ArrayList<Brand>();
+        brands.add(new Brand(1,"三只松鼠","三只松鼠",100,"三只松鼠，好吃不上火",1));
+        brands.add(new Brand(2,"优衣库","优衣库",200,"优衣库，服适人生",0));
+        brands.add(new Brand(3,"小米","小米科技有限公司",1000,"为发烧而生",1));
+        
+        // 2.存储到request域中
+        request.setAttribute("brands", brands);
+        
+        // 3.转发到el.demo.jsp
+        request.getRequestDispatcher("/el-demo.jsp").forward(request, response);
+    }
+
+    @Override
+    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        this.doGet(request, response);
+    }
+}
+```
+
+- 在 `el-demo.jsp` 中通过 EL表达式 获取数据
+
+```html
+<!-- isELIgnored="false" -->
+<%@ page contentType="text/html;charset=UTF-8" language="java" isELIgnored="false" %>
+<html>
+<head>
+    <title>Title</title>
+</head>
+<body>
+    ${brands}
+</body>
+</html>
+```
+
+- 浏览器显示效果：
+
+```
+[Brand{i=1, name='三只松鼠', s1='三只松鼠', j=100, s='三只松鼠，好吃不上火', k=1}, Brand{i=2, name='优衣库', s1='优衣库', j=200, s='优衣库，服适人生', k=0}, Brand{i=3, name='小米', s1='小米科技有限公司', j=1000, s='为发烧而生', k=1}]
+```
+
+### 域对象
+
+JavaWeb中有四大域对象，分别是：
+
+* page：当前页面有效
+* request：当前请求有效
+* session：当前会话有效
+* application：当前应用有效
+
+el 表达式获取数据，会依次从这4个域中寻找，直到找到为止。
+
+而这四个域对象的作用范围如下图所示
+
+<img src="https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20210818152857407.png" alt="image-20210818152857407" style="zoom:60%;" />
+
+例如： `${brands}`，会先从page域对象中获取数据，如果没有再到 requet 域对象中获取数据，如果再没有再到 session 域对象中获取，如果还没有才会到 application 中获取数据。
+
+## JSTL标签
+
+### 概述
+
+JSP标准标签库(Jsp Standarded Tag Library) ，使用标签取代JSP页面上的Java代码。
+
+例如：用`c:if`标签取代`if`语句
+
+```jsp
+<c:if test="${flag == 1}">
+    男
+</c:if>
+<c:if test="${flag == 2}">
+    女
+</c:if>
+```
+
+![image-20220708091736179](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20220708091736179.png)
+
+### 安装
+
+> **Apache Tomcat安装JSTL 库步骤如下：**
+>
+> 从Apache的标准标签库中下载的二进包(jakarta-taglibs-standard-current.zip)。
+>
+> - 官方下载地址：http://archive.apache.org/dist/jakarta/taglibs/standard/binaries/
+>
+> 下载 **jakarta-taglibs-standard-1.1.2.zip** 包并解压，将 **jakarta-taglibs-standard-1.1.2/lib/** 下的两个 jar 文件：**standard.jar** 和 **jstl.jar** 文件拷贝到 **/WEB-INF/lib/** 下。
+>
+> 将 tld 下的需要引入的 tld 文件复制到 WEB-INF 目录下。
+>
+> **Maven依赖：**
+>
+> ```xml
+> <dependency>
+>     <groupId>jstl</groupId>
+>     <artifactId>jstl</artifactId>
+>     <version>1.2</version>
+> </dependency>
+> <dependency>
+>     <groupId>taglibs</groupId>
+>     <artifactId>standard</artifactId>
+>     <version>1.1.2</version>
+> </dependency>
+> ```
+>
+> **JSTL标签库：**
+>
+> ```jsp
+> <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %> 
+> ```
+
+### if标签
+
+`<c:if>`：相当于`if`判断
+
+**属性：** test，用于定义条件表达式
+
+```jsp
+<c:if test="${flag == 1}">
+    男
+</c:if>
+<c:if test="${flag == 2}">
+    女
+</c:if>
+```
+
+**代码演示：**
+
+- 定义一个`servlet`，在该`servlet`中向request域对象中添加 键是`status`，值为`1`的数据：
+
+```java
+@WebServlet(name = "ServletDemo2", value = "/demo2")
+public class ServletDemo2 extends HttpServlet {
+    @Override
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        //1. 存储数据到request域中
+        request.setAttribute("status",1);
+
+        //2. 转发数据到 jstl-if.jsp
+        request.getRequestDispatcher("/jstl-if.jsp").forward(request,response);
+    }
+
+    @Override
+    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        this.doGet(request, response);
+    }
+}
+```
+
+- 定义 `jstl-if.jsp` 页面，在该页面使用 `<c:if>` 标签
+
+```jsp
+<%@ page contentType="text/html;charset=UTF-8" language="java" isELIgnored="false" %>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<html>
+<head>
+    <title>Title</title>
+</head>
+<body>
+    <%-- c:if：来完成逻辑判断,替换java中的if else --%>
+    <c:if test="${status == 1}">
+        启用
+    </c:if>
+
+    <c:if test="${status  == 0}">
+        禁用
+    </c:if>
+</body>
+</html>
+```
+
+- 浏览器显示效果：
+
+```
+启用
+```
+
+### foreach标签
+
+#### 用法一
+
+`<c:forEach>`：类似于Java中的增强for循环
+
+**属性：**
+
+* items：被遍历的容器
+* var：遍历产生的临时变量
+* varStatus：遍历状态对象
+  * count：从1开始计数
+  * index：下标，从0开始计数
+
+**代码演示：**
+
+- Servlet：
+
+```java
+@WebServlet(name = "ServlerDemo1", value = "/demo1")
+public class ServlerDemo1 extends HttpServlet {
+    @Override
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        // 1. 准备数据
+        List<Brand> brands = new ArrayList<Brand>();
+        brands.add(new Brand(1,"三只松鼠","三只松鼠",100,"三只松鼠，好吃不上火",1));
+        brands.add(new Brand(2,"优衣库","优衣库",200,"优衣库，服适人生",0));
+        brands.add(new Brand(3,"小米","小米科技有限公司",1000,"为发烧而生",1));
+
+        // 2.存储到request域中
+        request.setAttribute("brands", brands);
+
+        // 3.转发到el.demo.jsp
+        request.getRequestDispatcher("/jstl-foreach.jsp").forward(request, response);
+    }
+
+    @Override
+    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        this.doGet(request, response);
+    }
+}
+```
+
+- jsp：
+
+```jsp
+<%@ page contentType="text/html;charset=UTF-8" language="java" isELIgnored="false" %>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<html>
+<head>
+    <title>Title</title>
+</head>
+<body>
+<input type="button" value="新增"><br>
+<hr>
+<table border="1" cellspacing="0" width="800">
+    <tr>
+        <th>序号</th>
+        <th>品牌名称</th>
+        <th>企业名称</th>
+        <th>排序</th>
+        <th>品牌介绍</th>
+        <th>状态</th>
+        <th>操作</th>
+    </tr>
+
+    <c:forEach items="${brands}" var="brand" varStatus="status">
+        <tr align="center">
+                <%--<td>${brand.id}</td>--%>
+            <td>${status.count}</td>
+            <td>${brand.brandName}</td>
+            <td>${brand.companyName}</td>
+            <td>${brand.ordered}</td>
+            <td>${brand.description}</td>
+            <c:if test="${brand.status == 1}">
+                <td>启用</td>
+            </c:if>
+            <c:if test="${brand.status != 1}">
+                <td>禁用</td>
+            </c:if>
+            <td><a href="#">修改</a> <a href="#">删除</a></td>
+        </tr>
+    </c:forEach>
+</table>
+</body>
+</html>
+```
+
+- 浏览器效果：
+
+![image-20220708094356850](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20220708094356850.png)
+
+#### 用法二
+
+`<c:forEach>`：类似于Java中的普通for循环
+
+**属性：**
+
+* begin：开始数
+* end：结束数
+* step：步长
+
+**代码演示：** 从0循环到1，变量名为`i`，每次自增1
+
+```jsp
+<c:forEach begin="0" end="10" step="1" var="i">
+    ${i}
+</c:forEach>
+```
 
 # 【AJAX】
 
