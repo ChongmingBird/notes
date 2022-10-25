@@ -171,7 +171,7 @@ SHOW DATABASES;
 | `performance_schema` |                      存储性能相关的信息                      |
 |        `sys`         |                      存储系统相关的信息                      |
 
-创建数据库
+#### 创建库
 
 ```sql
 CREATE DATABASE 数据库名;
@@ -373,10 +373,10 @@ DELETE FROM 表名 WHERE ...;
 
 > **DQL 数据查询语言(Data Query Language):** 用来查询数据库中表的记录（数据）
 
-**查询语法：**
+**查询语法（编写顺序）：**
 
 ```sql
-SELECT 字段列表 FROM 列表表名
+SELECT [DISTINCT] 字段列表 FROM 列表表名
 
 WHERE
 	条件
@@ -385,9 +385,9 @@ GROUP BY
 HAVING
 	分组后条件
 ORDER BY
-	排序字段
+	排序字段 [ASC/DESC]
 LIMIT
-	分页
+	起始索引，查询条目数
 ;	
 ```
 
@@ -400,7 +400,7 @@ SELECT 列1, 列2,...(简称字段列表) FROM 表名;
 **注意：**
 
 - `*` 替代列名可以查询到所有字段，但项目中尽量不要使用`*`，写全列名可以明确需要查找的数据
-- `DISTINCT` 可以去除重复记录，写在`SELECT`和字段列表之间
+- `DISTINCT` 可以去除重复记录，写在字段列表前面，如:`SELECT DISTINCT 字段列表 ...`或者`SELECT COUNT(DISTINCT 字段列表) ...`
 - `列名 as/空格 别名` 可以给查询出的列名起别称
 - 如果不使用FROM字句，则SELECT会计算出其后跟着的表达式的结果，通常可以用来判断当前到数据库的连接是否有效。许多检测工具会执行一条`SELECT 1;`来测试数据库连接。
 
@@ -440,7 +440,7 @@ SELECT 字段列表 FROM 表名 WHERE 条件;
 
 - 和 `<条件1> AND <条件2>`
 - 或 `<条件1> OR <条件2>`
-  - 简化或写法: `字段 in(值1,值2,...)`
+  - 简化或写法: `字段 IN(值1,值2,...)`
 - 否 `NOT <条件>` 
   - `NOT id = 2`等价于`id <>2`
 - 条件运算按照`NOT`、`AND`、`OR`的优先级进行，要组合三个或者更多的条件并改变优先级，就需要用小括号`()`表示如何进行条件运算。
@@ -468,7 +468,7 @@ SELECT * FROM stu WHERE name LIKE '%德%';
 ### 排序查询
 
 ```sql
-SELECT * FROM students  ORDER BY 字段名1 排序方式1, 字段名1 排序方式2; 
+SELECT * FROM students ORDER BY 字段名1 排序方式1, 字段名1 排序方式2; 
 ```
 
 查询时结果集通常是按照主键排序，若要其根据其他条件排序，就可以加上`ORDER BY`子句。
@@ -576,8 +576,6 @@ SELECT AVG(math) FROM stu;
 
 ![image-20220424211721362](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-master/image-20220424211721362.png)
 
-- 查询英语成绩的最低分
-
 ### 分组查询
 
 分组查询使用`GROUP BY`
@@ -628,8 +626,6 @@ SELECT sex 性别, AVG(math) 平均分, COUNT(id) 人数 FROM stu WHERE math > 7
 
 ![image-20220424213910479](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-master/image-20220424213910479.png)
 
-
-
 ### 分页查询
 
 分页查询使用关键字`LIMIT M OFFSET <N>`实现，在`MySQL`中`OFFSET`可省略为`<M>, <N> `，这是`MySQL`的方言(不同数据库分页关键字一般不一样)
@@ -662,7 +658,7 @@ SELECT * FROM stu LIMIT 0, 3;
 
 ![image-20220424214750481](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-master/image-20220424214750481.png)
 
-- 每页显示3条数据，查询第2页数据
+- 每页显示3条数据，查询第2页数据，起始索引(2-1)*3=3
 
 ```sql
 SELECT * FROM stu LIMIT 3, 3;
@@ -670,7 +666,7 @@ SELECT * FROM stu LIMIT 3, 3;
 
 ![image-20220424214809642](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-master/image-20220424214809642.png)
 
-- 每页显示3条数据，查询第3页数据（当前页不足3条，有多少显示多少）
+- 每页显示3条数据，查询第3页数据，起始索引(3-1)*3=6（当前页不足3条，有多少显示多少）
 
 ```sql
 select * from stu limit 6, 3;
@@ -827,6 +823,338 @@ SELECT * FROM emp WHERE salary > (SELECT salary FROM emp WHERE name = 'B');
 
 ![image-20220425182033357](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-master/image-20220425182033357.png)
 
+### 练习
+
+```sql
+-- 查询年龄为20，21，22，23岁的女性员工信息
+SELECT * FROM emp WHERE gender = '女' and age in(20,21,22,23);
+
+-- 查询性别为男，年龄在20-40岁（含）以内，姓名为三个字的员工
+SELECT * FROM emp WHERE gender = '男' AND (age BETWEEN 20 AND 40) AND name like '___';
+
+-- 统计员工表中，年龄小于60岁的，男性员工和女性员工的人数
+SELECT gender, COUNT(*) FROM emp WHERE age < 60 GROUP BY gender;
+
+-- 查询所有年龄小于或等于35岁员工的姓名和年龄，并对查询结果按年龄升序排序，如果年龄相同按入职时间降序排序
+SELECT name,age FROM emp WHERE name <= 35 ORDER BY age ASC,entrydate DESC;
+
+-- 查询性别为男，且年龄在20-40岁（含）以内的前五个员工信息，对查询的结果按年龄升序排序，年龄相同按入职时间升序排序
+SELECT * FROM emp WHERE gender = '男' AND (age BETWEEN 20 AND 40) ORDER BY age ASC , entrydate ASC LIMIT 0,5;
+```
+
+### 执行顺序
+
+```sql
+-- 执行顺序
+FROM 
+	字段列表
+WHERE 
+	条件列表
+GROUP BY 
+	分组字段列表
+HAVING
+	分组后条件列表
+SELECT
+	字段列表
+ORDER BY
+	排序字段列表
+LIMIT
+	分页参数
+```
+
+## DCL
+
+> **DCL 数据控制语言(Data Control Language):** 用来管理数据库用户、控制数据库的访问权限
+>
+> - 控制哪些用户能访问数据库
+> - 控制用户对数据库有哪些访问权限
+
+### 用户管理
+
+#### 查询用户
+
+**mysql的用户信息存在user表中，且该表只能本机访问**
+
+```sql
+USE mysql; 
+SELECT * FROM user;
+```
+
+#### 创建用户
+
+**mysql用户使用'用户名@主机名'标识**
+
+```sql
+CREATE USER '用户名'@'主机名' IDENTIFIED BY '密码';
+```
+
+**例：**
+
+```mysql
+-- 创建用户 chong，只能够在当前主机localhost访问，密码 123456;
+CREATE USER 'chong'@'localhost' IDENTIFIED BY '123456';
+-- 注意，此时的用户没有分配权限
+```
+
+```mysql
+-- 创建用户 ming，可以在任意主机访问该数据库，密码 123456;
+CREATE USER 'ming'@'%' IDENTIFIED BY '123456';
+-- %代表任意主机都能访问
+```
+
+![image-20221025194832511](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221025194832511.png)
+
+#### 修改用户密码
+
+```sql
+ALTER USER '用户名'@'主机名' IDENTIFIED WITH mysql_native_password BY '新密码';
+```
+
+**例：**
+
+```mysql
+-- 修改用户 ming的访问密码为 1234;
+ALTER USER 'ming'@'%' IDENTIFIED with mysql_native_password BY '1234';
+```
+
+#### 删除用户
+
+```sql
+DROP USER '用户名'@'主机名';
+```
+
+**例：**
+
+```mysql
+-- 删除 chong@localhost;
+DROP USER 'chong'@'localhost';
+```
+
+### 权限控制
+
+#### 权限列表
+
+**MySQL中定义了很多种权限，但常用的就以下几种：**
+
+|        权限        |        说明        |
+| :----------------: | :----------------: |
+| ALL，ALLPRIVILEGED |      所有权限      |
+|       SELECT       |      查询数据      |
+|       INSERT       |      插入数据      |
+|       UPDATE       |      修改数据      |
+|       DELETE       |      删除数据      |
+|       ALTER        |       修改表       |
+|        DROP        | 删除数据库/表/视图 |
+|       CREATE       |   创建数据库/表    |
+
+#### 查询权限
+
+```mysql
+SHOW GRANTS FOR '用户名'@'主机名';
+```
+
+**例：**
+
+```mysql
+-- 查询权限
+SHOW GRANTS FOR 'ming'@'%';
+```
+
+![image-20221025202828640](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221025202828640.png)
+
+此时该没有权限
+
+#### 授予权限
+
+```mysql
+GRANT 权限列表 ON 数据库.表名 TO '用户名'@'主机名';
+```
+
+**例：**
+
+```mysql
+-- 授予所有权限
+GRANT ALL ON tablespace.* TO 'ming'@'%';
+```
+
+![image-20221025202927209](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221025202927209.png)
+
+此时用户多了一条对于数据库'tablespace'的全部权限
+
+#### 撤销权限
+
+```mysql
+REVOKE 权限列表 ON 数据库名.表名 FROM '用户名'@'主机名';
+```
+
+**例：**
+
+```mysql
+-- 撤销所有权限
+REVOKE ALL ON tablespace.* FROM 'ming'@'%';
+```
+
+![image-20221025203823578](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221025203823578.png)
+
+刚才新增的权限被删除了
+
+## 函数
+
+> 函数是指一端可以直接被另一端程序调用的程序或代码。
+>
+> MySQL中内置了很多函数
+
+### 字符串函数
+
+**相对常用的函数：**
+
+|            函数            |                           功能                            |
+| :------------------------: | :-------------------------------------------------------: |
+|   `CONCAT(S1,S2,...,Sn)`   |                        字符串拼接                         |
+|        `LOWER(str)`        |                   将字符串全部转为小写                    |
+|        `UPPER(str)`        |                   将字符串全部转为大学                    |
+|     `LPAD(str,n,pad)`      | 左填充，用字符串pad对str的左边进行填充，达到n个字符串长度 |
+|     `RPAD(str,n,pad)`      | 右填充，用字符串pad对str的右边进行填充，达到n个字符串长度 |
+|        `TRIM(str)`         |                去掉字符串头部和尾部的空格                 |
+| `SUBSTRING(str,start,len`) | 返回字符串str从start位置起始(从1开始)的len个长度的字符串  |
+
+**例：**
+
+```mysql
+-- CONCAT
+SELECT CONCAT('hello','mysql');
+
+-- LOWER
+SELECT LOWER('HELLO');
+
+-- UPPER
+SELECT UPPER('hello');
+
+-- LPAD
+SELECT LPAD('01',5,'-');
+
+-- RPAD
+SELECT RPAD('01',5,'-');
+
+-- TRIM
+SELECT TRIM(' Hello MySQL ');
+
+-- SUBSTRING
+SELECT SUBSTRING('Hello MySQL',1,3); -- HEL
+
+-- 将企业员工的工号统一为5位数
+UPDATE emp set workerno = LPAD(workno,5,0);
+```
+
+### 数值函数
+
+**常见的数值函数：**
+
+|     函数     |                功能                |
+| :----------: | :--------------------------------: |
+|  `CEIL(x)`   |              向上取整              |
+|  `FLOOR(x)`  |              向下取整              |
+| `MOD(x，y)`  |            返回x/y的模             |
+|   `RAND()`   |         返回0~1内的随机数          |
+| `ROUND(x,y)` | 求参数x的四舍五入的值，保留y位小数 |
+
+**例：**
+
+```mysql
+-- CEIL
+SELECT CEIL(1.1); -- 2
+
+-- FLOOR
+SELECT FLOOR(1.9); -- 1
+
+-- MOD
+SELECT MOD(7,4); -- 3
+
+-- RAND
+SELECT RAND();
+
+-- ROUND
+SELECT ROUND(2.344,2); -- 2.34
+
+
+-- 案例: 通过数据库的函数，生成一个六位数的随机验证码。
+SELECT LPAD(ROUND(RAND()*1000000,0),6,'0');
+```
+
+### 日期函数
+
+|               函数                |                       功能                        |
+| :-------------------------------: | :-----------------------------------------------: |
+|            `CURDATE()`            |                   获得当前日期                    |
+|            `CURTIME()`            |                   获得当前时间                    |
+|              `NOW()`              |                返回当前日期和时间                 |
+|           `YEAR(date)`            |                获取指定date的年份                 |
+|           `MONTH(date)`           |                获取指定date的月份                 |
+|            `DAY(date)`            |                获取指定date的日期                 |
+| `DAY_ADD(date,INTERVALexpr type)` | 返回一个日期/时间值加上一个时间间隔expr后的时间值 |
+|      `DATEDIFF(date1,date2)`      |    返回起始时间date1和结束时间date2之间的天数     |
+
+**例：**
+
+```mysql
+-- CURDATE()
+SELECT CURDATE();
+
+-- CURTIME()
+SELECT CURTIME();
+
+-- NOW()
+SELECT NOW();
+
+-- YEAR , MONTH , DAY
+SELECT YEAR(NOW());
+
+SELECT MONTH(NOW());
+
+SELECT DAY(NOW());
+
+-- DATE_ADD
+SELECT DATE_ADD(NOW(), INTERVAL 70 YEAR );
+
+-- DATEDIFF
+SELECT DATEDIFF('2021-10-01', '2021-12-01');
+
+-- 案例: 查询所有员工的入职天数，并根据入职天数倒序排序。
+SELECT name, DATEDIFF(CURDATE(), entrydate) AS 'entryday' FROM emp ORDER BY entrydays DESC;
+```
+
+### 流程函数
+
+流程控制函数可以在SQL语句中实现条件筛选，从而提高语句的效率
+
+**常见的流程控制函数：**
+
+|                            函数                             |                       功能                        |
+| :---------------------------------------------------------: | :-----------------------------------------------: |
+|                       `IF(value,t,f)`                       |           如果value为true，返回t，否则f           |
+|                   `IFNULL(value1,value2)`                   |    如果value不为空，返回value1，否则返回value2    |
+|    `CASE WHEN [val1] THEN [res1] ...ELSE [default] END`     |    如果val1为true，返回res1,...否则返回default    |
+| `CASE [expr] WHEN [val1] THEN [res1] ...ELSE [default] END` | 如果expr的值等于val1，返回res1,...否则返回default |
+
+**例：**
+
+```mysql
+-- IF
+SELECT IF(FALSE, 'OK', 'ERROR');
+
+-- IFNULL
+SELECT IFNULL('OK','DEFAULT'); -- OK
+SELECT IFNULL('','DEFAULT'); -- (空串)
+SELECT IFNULL(NULL,'DEFAULT'); -- DEFAULT
+
+-- CASE WHEN THEN ELSE END
+-- 需求: 查询EMP表的员工姓名和工作地址 (北京/上海 ----> 一线城市 , 其他 ----> 二线城市)
+SELECT
+    name,
+    (CASE workaddress WHEN '北京' THEN '一线城市' WHEN '上海' THEN '一线城市' ELSE '二线城市' END) AS '工作地址'
+FROM EMP;
+```
+
 ## 约束
 
 ### 概念
@@ -844,7 +1172,7 @@ SELECT * FROM emp WHERE salary > (SELECT salary FROM emp WHERE name = 'B');
 | 非空约束 |  `NOT NULL`   |                 保证列中所有数据不能为`NULL`                 |
 | 唯一约束 |   `UNIQUE`    |                   保证列中所有数据各不相同                   |
 | 主键约束 | `PRIMARY KEY` |           主键是一行数据的唯一标识，要求非空且唯一           |
-| 检查约束 |    `CHECK`    |          保证列中的值满足某一条件，**MySQL** 不支持          |
+| 检查约束 |    `CHECK`    |          保证列中的值满足某一条件，**MySQL不支持**           |
 | 默认约束 |   `DEFAULT`   | 保存数据时，未指定值则采用默认值(不给值时才会给默认值，如果给值`NULL`，结果还是`NULL`) |
 | 外键约束 | `FOREIGN KEY` | 外键用来将两个表的数据之间建立链接，保证数据的一致性和完整性 |
 
@@ -1513,154 +1841,3 @@ INSERT INTO statistics (class_id, average) SELECT class_id, AVG(score) FROM stud
 ```
 
 ​	指定索引的前提是索引`idx_class_id`必须存在。
-
-# 练习
-
-1. **用T-SQL语句创建符合如下要求的两个表**
-
-​																													表 departments
-
-| 字段名  | 数据类型     | 说明           |
-| ------- | ------------ | -------------- |
-| depid   | tinyint      | 部门编号(主键) |
-| depname | char(12)     | 部门名称       |
-| depnote | varchar(100) | 有关说明       |
-
-​																													表 employees
-
-| 字段名    | 数据类型      | 说明                 |
-| --------- | ------------- | -------------------- |
-| empid     | char(6)       | 员工编号(主键)       |
-| empname   | char(20)      | 员工姓名(非空)       |
-| birthdate | smalldatetime | 出生日期             |
-| depid     | tinyint       | 所在部门(外键)(非空) |
-| salary    | float         | 月薪                 |
-| position  | char(8)       | 职务                 |
-
-```mysql
-CREATE TABLE `departments` (
-	`depid` TINYINT NOT NULL COMMENT '部门编号(主键)',
-	`depname` CHAR ( 12 ) NOT NULL COMMENT '部门名称',
-	`depnote` VARCHAR ( 100 ) DEFAULT NULL COMMENT '有关说明',
-	-- 申明主键约束
-	PRIMARY KEY ( `depid` ) 
-) ENGINE = INNODB DEFAULT CHARSET = utf8mb3;
-
-CREATE TABLE `employees` (
-	`empid` CHAR ( 6 ) NOT NULL COMMENT '员工编号(主键)',
-	`empname` CHAR ( 20 ) NOT NULL COMMENT '员工姓名(非空)',
-	`birthdate` DATE DEFAULT NULL COMMENT '出生日期',
-	`depid` TINYINT DEFAULT NULL COMMENT '所在部门(外键)(非空)',
-	`salary` FLOAT DEFAULT NULL COMMENT '月薪',
-	`position` CHAR ( 8 ) DEFAULT NULL COMMENT '职务',
-	-- 申明主键约束
-	PRIMARY KEY ( `empid` ),
-	-- 申明外键约束 
-	CONSTRAINT `depid_fk` FOREIGN KEY ( `depid` ) REFERENCES `departments` ( `depid` )
-) ENGINE = INNODB DEFAULT CHARSET = utf8mb3;
-
--- 查询结果
-DESC departments;
-DESC employees;
-```
-
-2. **向第1题的departments表中添加如下数据：**
-
-| depid | depname    | depnote |
-| ----- | ---------- | ------- |
-| 1     | 软件开发部 | null    |
-| 2     | 系统集成部 |         |
-
-3. **向第1题的employees表中添加如下数据：**
-
-| empid  | empname | birthdate  | depid | salary  | position |
-| ------ | ------- | ---------- | ----- | ------- | -------- |
-| A00001 | 王晓丽  | 1970-4-27  | 2     | 2400.00 |          |
-| A00003 | 刘晴    | 1972-9-12  | 1     | 2200.00 |          |
-| A00004 | 马明    | 1962/3/14  | 1     | 4600.00 | 副经理   |
-| A00007 | 赵书生  | 1968/12/15 | 2     | 2700.00 |          |
-
-```mysql
-INSERT INTO departments(depid, depname, depnote) VALUES
-(1, '软件开发部', NULL),
-(2, '系统集成部', '');
-
-INSERT INTO employees(empid,empname,birthdate,depid,salary,position)
-VALUES
-("A00001","王晓丽","1970-4-27",2,2400, NULL),
-("A00002","刘晴","1972-9-12",1,2200, NULL),
-("A00003","马明","1962/3/14",1,4600,"副经理"),
-("A00007","赵树生","1968/12/15",2,2700, NULL);
-
--- 查询结果
-SELECT * FROM departments;
-SELECT * FROM employees;
-```
-
-4. **完成以下练习**
-
-(1) 查询所有1970年以后出生的员工的信息。
-
-```mysql
-SELECT * FROM employees WHERE DATE_FORMAT(birthdate,'%Y-%m-%d') > '1970-01-01';
-```
-
-(2) 查询工资高于2000的员工的信息。
-
-```mysql
-SELECT * FROM employees WHERE salary > 2000;
-```
-
-(3) 查询系统集成部的所有员工的信息。
-
-```mysql
-SELECT * FROM employees WHERE depid = 2;
-```
-
-(4) 将所有员工的工资上调10%。
-
-```mysql
-UPDATE employees SET salary = salary * 1.1;
--- 查询结果
-SELECT * FROM employees;
-```
-
-(5) 统计软件开发部的人数。
-
-```mysql
-SELECT COUNT(*) FROM employees WHERE depid = 1;
-```
-
-(6) 查询所有员工中工资最高和最低的人。
-
-```mysql
--- 查询所有员工中工资最高的人
-SELECT * FROM employees WHERE salary = (SELECT MAX(salary) FROM employees);
--- 查询所有员工中工资最低的人	
-SELECT * FROM employees WHERE salary = (SELECT MIN(salary) FROM employees);
-```
-
-(7) 将工资收入低于2500的员工每人加薪200元。
-
-```mysql
-UPDATE employees SET salary = salary + 200 WHERE salary < 2500;
--- 查询结果
-SELECT * FROM employees;
-```
-
-(8) 对所有“岗位”一栏为空的记录，将其“岗位”改为“职员”。
-
-```mysql
-UPDATE employees SET position = '职员' WHERE position IS NULL;
--- 查询结果
-SELECT * FROM employees;
-```
-
-(9) 删除年龄大于50岁的员工的信息。
-
-```mysql
-DELETE FROM employees WHERE DATE_FORMAT(birthdate,'%Y-%m-%d') < '1972-05-19';
--- 查询结果
-SELECT * FROM employees;
-```
-

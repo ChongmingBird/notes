@@ -3255,18 +3255,3 @@ insertRow(int row, Object[] rowData)
 moveRow(int start, int end, int to)
 ```
 
-# 【综合案例】
-
-## 科学计算器
-
-
-
-|  （   |  ）  | BackSpace |  ÷   |
-| :---: | :--: | :-------: | :--: |
-|   7   |  8   |     9     |  ×   |
-|   4   |  5   |     6     |  -   |
-|   1   |  2   |     3     |  +   |
-| Clear |  0   |     .     |  =   |
-
-
-
