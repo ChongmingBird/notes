@@ -1,4 +1,4 @@
-# 【MySQL】
+# 【MySQL基础篇】
 
 ## 简介
 
@@ -674,155 +674,6 @@ select * from stu limit 6, 3;
 
 ![image-20220424214827977](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-master/image-20220424214827977.png)
 
-### 多表查询
-
-#### 简介
-
-> 多表查询（笛卡尔查询）：从多张表中一次性的查询出想要的数据
-
-**语法：**
-
-```sql
-SELECT * FROM 表1, 表2;
-
--- 例：
-SELECT * FROM students, classes;
-```
-
-- **两表分别数据：**
-
-![image-20220425174923021](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-master/image-20220425174923021.png)
-
-- **一次性查询：**
-
-![image-20220425175030328](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-master/image-20220425175030328.png)
-
-结果集仍是二维表，为两张表的行与列两两拼在一起返回（有A,B两个集合，会取尽A,B所有的组合情况），所以列数是两表列之积，行为两表行数之积，其结果可能会非常大。
-
-**多表查询主要操作就是消除无效数据**
-
-#### 分类
-
-**笛卡尔积：** 取A,B两个集合的所有组合情况
-
-**多表查询分类：**
-
-- **连接查询：**
-  - 内连接：相当于查询A,B交集数据
-  - 外连接：
-    - 左外连接：相当于查询A表所有数据和交集部分数据
-    - 右外连接：相当于查询B表所有数据和交集部分数据
-- **子查询**
-
-##### 内连接
-
-> **内连接：相当于查询A,B交集数据**
-
-**语法：**
-
-```sql
--- 隐式内连接
-SELECT 字段列表 FROM 表1,表2… WHERE 条件;
-
--- 显示内连接
-SELECT 字段列表 FROM 表1 INNER JOIN 表2 ON 条件;
-```
-
-**案例：**
-
-- 隐式内连接：
-
-  ```sql
-  -- 给表 起别名
-  SELECT
-  	t1.name,
-  	t1.gender,
-  	t2.dname
-  FROM
-  	emp t1,
-  	dept t2
-  WHERE
-  	t1.dep_id = t2.did;
-  ```
-
-- 显示内连接：
-
-  ```sql
-  SELECT 
-  	emp.name, 
-  	emp.gender, 
-  	dept.dname 
-  FROM 
-  	emp 
-  	INNER JOIN dept ON emp.dep_id = dept.did;
-  ```
-
-![image-20220425180405344](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-master/image-20220425180405344.png)
-
-##### 外连接
-
-> **左外连接：相当于查询A表所有数据和交集部分数据**
->
-> **右外连接：相当于查询B表所有数据和交集部分数据**
-
-**语法：**
-
-```sql
--- 左外连接
-SELECT 字段列表 FROM 表1 LEFT OUTER JOIN 表2 ON 条件;
-
--- 右外连接
-SELECT 字段列表 FROM 表1 RIGHT OUTER JOIN 表2 ON 条件;
-```
-
-**案例：**
-
-- 查询emp表所有数据和对应的部门信息（左外连接）：
-
-```sql
-SELECT * FROM emp LEFT OUTER JOIN dept ON emp.dep_id = dept.did;
-```
-
-![image-20220425180741076](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-master/image-20220425180741076.png)
-
-结果显示查询到了 **左表（emp）** 中所有的数据及两张表能关联的数据（如图，尽管小白龙没有关联 **右表(dept)** ，但还是查出来了）
-
-- 查询dept表所有数据和对应的员工信息（右外连接）:
-
-```sql
-SELECT * FROM emp RIGHT OUTER JOIN dept ON emp.dep_id = dept.did;
-```
-
-![image-20220425181045343](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-master/image-20220425181045343.png)
-
-结果显示查询到了右表（dept）中所有的数据及两张表能关联的数据（如图，没和 **右表(dept)** 关联的小白龙没有查出来，没有和 **左表(emp)** 关联的销售部查出来了）
-
-##### 子查询
-
-> 概念：查询中嵌套查询，称嵌套查询为子查询
-
-**例如，查询工资A高于员工B的员工信息：**
-
-- 查询员工B的工资
-
-```sql
-SELECT salary FROM emp WHERE name = 'B'
-```
-
-- 查询工资高于员工B员工信息
-
-```sql
-SELECT * FROM emp WHERE salary > 3600;
-```
-
-**两个需求合二为一即子查询：**
-
-```sql
-SELECT * FROM emp WHERE salary > (SELECT salary FROM emp WHERE name = 'B');
-```
-
-![image-20220425182033357](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-master/image-20220425182033357.png)
-
 ### 练习
 
 ```sql
@@ -1163,6 +1014,16 @@ FROM EMP;
 - 约束的存在保证了数据库中数据的正确性、有效性、完整性
 - 例如，约束id字段，让它不可重复
 
+```mysql
+CREATE TABLE user (
+	id int PRIMARY KEY AUTO_INCREMENT COMMENT '主键',
+	name varchar(10) NOT NULL UNIQUE COMMENT '姓名',
+	age int CHECK (age > 0 AND age <= 120) COMMENT '年龄',
+	status char(1) DEFAULT '1' COMMENT '状态',
+	gender char(1) COMMENT '性别'
+) COMMENT '用户表';
+```
+
 ### 分类
 
 **SQL中约束的分类：**
@@ -1172,11 +1033,11 @@ FROM EMP;
 | 非空约束 |  `NOT NULL`   |                 保证列中所有数据不能为`NULL`                 |
 | 唯一约束 |   `UNIQUE`    |                   保证列中所有数据各不相同                   |
 | 主键约束 | `PRIMARY KEY` |           主键是一行数据的唯一标识，要求非空且唯一           |
-| 检查约束 |    `CHECK`    |          保证列中的值满足某一条件，**MySQL不支持**           |
+| 检查约束 |    `CHECK`    |       保证列中的值满足某一条件，**MySQL 8.0.16后支持**       |
 | 默认约束 |   `DEFAULT`   | 保存数据时，未指定值则采用默认值(不给值时才会给默认值，如果给值`NULL`，结果还是`NULL`) |
 | 外键约束 | `FOREIGN KEY` | 外键用来将两个表的数据之间建立链接，保证数据的一致性和完整性 |
 
-**注意：** MySQL不支持检查约束
+**注意：** MySQL 8.0.16 后才支持检查约束
 
 ### 非空约束
 
@@ -1225,7 +1086,7 @@ FROM EMP;
   CREATE TABLE 表名(
      列名 数据类型,
      …
-     CONSTRAINT 约束名称 UNIQUE(列名)
+     CONSTRAINT 约束名称 UNIQUE(字段名,...)
   ); 
   ```
 
@@ -1244,11 +1105,13 @@ FROM EMP;
 
 > **概念：** 主键是一行数据的唯一标识，要求非空且唯一
 >
-> **一张表只能有一个主键**
+> **一张表只能有一个主键，但可以由多个字段组成联合主键，满足整体非空唯一**
 
 **语法：**
 
 * 添加约束
+
+  **AUTO_INCREMENT：** 主键自动增长
 
   ```sql
   -- 创建表时添加主键约束
@@ -1259,13 +1122,13 @@ FROM EMP;
   -- 建表末尾添加主键约束
   CREATE TABLE 表名(
       列名 数据类型,
-      CONSTRAINT 约束名称 PRIMARY KEY(列名)
+      CONSTRAINT 约束名称 PRIMARY KEY(字段名,...)
   ); 
   ```
 
   ```sql
   -- 建完表后添加主键约束
-  ALTER TABLE 表名 ADD PRIMARY KEY(字段名);
+  ALTER TABLE 表名 ADD PRIMARY KEY(列名,...);
   ```
 
 * 删除约束
@@ -1301,25 +1164,38 @@ FROM EMP;
   ALTER TABLE 表名 ALTER 列名 DROP DEFAULT;
   ```
 
-### 案例
+### 检查约束
 
-```sql
--- 员工表
-CREATE TABLE emp (
-    -- 员工id，主键且自增长
-    id INT PRIMARY KEY auto_increment, 
-    -- 员工姓名，非空并且唯一
-    ename VARCHAR(50) NOT NULL UNIQUE, 
-    -- 入职日期，非空
-    joindate DATE NOT NULL , 
-    -- 工资，非空
-    salary DOUBLE(7,2) NOT NULL , 
-    -- 奖金，如果没有奖金默认为0
-    bonus DOUBLE(7,2) DEFAULT 0 
-);
-```
+> **概念：** 保存数据时，对数据进行检查
 
-![image-20220425143542085](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-master/image-20220425143542085.png)
+**语法：**
+
+- 添加约束
+
+  ```mysql
+  -- 创建表时添加检查约束
+  CREATE TABLE 表名(
+      列名 数据类型 CHECK(检查条件),
+      …
+  ); 
+  -- 建表末尾添加检查约束
+  CREATE TABLE 表名(
+  	列名 数据类型,
+      …
+  	CONSTRAINT 约束名 CHECK(检查条件)
+  );
+  ```
+
+  ```mysql
+  -- 建完表后添加检查约束
+  ALTER TABLE 表名 ADD CHECK(检查条件);
+  ```
+
+- 删除约束
+
+  ```mysql
+  ALTER TABLE 表名 DROP CONSTRAINT 约束名;
+  ```
 
 ### 外键约束
 
@@ -1368,13 +1244,13 @@ DROP TABLE IF EXISTS dept;
 
 -- 部门表
 CREATE TABLE dept(
-	id INT PRIMARY KEY auto_increment,
+	id INT PRIMARY KEY AUTO_INCREMENT,
 	dep_name VARCHAR(20),
 	addr VARCHAR(20)
 );
 -- 员工表 
 CREATE TABLE emp(
-	id INT PRIMARY KEY auto_increment,
+	id INT PRIMARY KEY AUTO_INCREMENT,
 	name VARCHAR(20),
 	age INT,
 	dep_id INT,
@@ -1414,6 +1290,335 @@ DELETE FROM emp WHERE dep_name = '研发部';
 ```
 
 ![image-20220425151056508](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-master/image-20220425151056508.png)
+
+
+
+#### 级联
+
+> MySQL利用外键级联删除、更新
+>
+> MySql支持外键的存储引擎只有InnoDB
+>
+> 在创建外键的时候，要求父表必须有对应的索引，子表在创建外键的时候也会自动创建对应的索引。
+
+|    行为     |                             说明                             |
+| :---------: | :----------------------------------------------------------: |
+| NOT ACTION  | 当在父表中删除/更新对应记录时，首先检查该记录是否有对应外键，如果有则不允许删除/更新。与RESTRICT一致) 默认行为 |
+|  RESTRICT   | 当在父表中删除/更新对应记录时，首先检查该记录是否有对应外键，如果有则不允许删除/更新。(与NO ACTION一致) 默认行为 |
+|   CASCADE   | 当在父表中删除/更新对应记录时，首先检查该记录是否有对应外键，如果有，则也删除/更新外键在子表中的记录。 |
+|  SET NULL   | 当在父表中删除对应记录时，首先检查该记录是否有对应外键，如果有则设置子表中该外键值为null（这就要求该外键允许取null）。 |
+| SET DEFAULT | 父表有变更时，子表将外键列设置成一个默认的值 (MySQL默认引擎Innodb不支持) |
+
+**语法：**
+
+```mysql
+ALTER TABLE 表名 ADD CONSTRAINT 外键名称 FOREIGN KEY(外键列名) REFERENCES 主表名(主表列名) [ON DELETE 行为名] [ON UPDATE 行为名];
+```
+
+**案例：**
+
+```mysql
+-- 主表dept中id删除和更新时，同时删除/更新子表emp的外键值demt_id
+ALTER TABLE emp	ADD CONSTRAINT fk_emp_dept_id FOREIGN KEY (dept_id) REFERENCES dept(id) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- 主表dept中id删除和更新时，同时设置子表emp的外键值demt_id为NULL
+ALTER TABLE emp	ADD CONSTRAINT fk_emp_dept_id FOREIGN KEY (dept_id) REFERENCES dept(id) ON DELETE CASCADE ON UPDATE CASCADE;
+```
+
+## 多表查询
+
+### 简介
+
+> 多表查询（笛卡尔查询）：从多张表中一次性的查询出想要的数据
+
+**语法：**
+
+```sql
+SELECT * FROM 表1, 表2;
+
+-- 例：
+SELECT * FROM students, classes;
+```
+
+- **两表分别数据：**
+
+![image-20220425174923021](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-master/image-20220425174923021.png)
+
+- **一次性查询：**
+
+![image-20220425175030328](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-master/image-20220425175030328.png)
+
+结果集仍是二维表，为两张表的行与列两两拼在一起返回（有A,B两个集合，会 **取尽A,B所有的组合情况** ），所以列数是两表列之积，行为两表行数之积，其结果可能会非常大。
+
+**多表查询主要操作就是消除无效数据**
+
+### 分类
+
+**笛卡尔积：** 取A,B两个集合的所有组合情况
+
+**多表查询分类：**
+
+- **连接查询：**
+  - 内连接：相当于查询A,B交集数据
+  - 外连接：
+    - 左外连接：相当于查询A表所有数据和交集部分数据
+    - 右外连接：相当于查询B表所有数据和交集部分数据
+- **子查询**
+
+### 内连接
+
+> **内连接：相当于查询A,B交集数据**
+
+**语法：**
+
+```sql
+-- 隐式内连接
+SELECT 字段列表 FROM 表1,表2… WHERE 条件;
+
+-- 显示内连接
+SELECT 字段列表 FROM 表1 INNER JOIN 表2 ON 条件;
+```
+
+**案例：**
+
+- 隐式内连接：
+
+  ```sql
+  -- 可以给表起别名，但起完别名不能再用原名，因为DQL语句FROM先执行
+  SELECT
+  	t1.name,
+  	t1.gender,
+  	t2.dname
+  FROM
+  	emp t1,
+  	dept t2
+  WHERE
+  	t1.dep_id = t2.did;
+  ```
+
+- 显示内连接：
+
+  ```sql
+  SELECT 
+  	emp.name, 
+  	emp.gender, 
+  	dept.dname 
+  FROM 
+  	emp 
+  	INNER JOIN dept ON emp.dep_id = dept.did;
+  ```
+
+![image-20220425180405344](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-master/image-20220425180405344.png)
+
+### 外连接
+
+> **左外连接：相当于查询A表所有数据和AB交集部分数据**
+>
+> **右外连接：相当于查询B表所有数据和AB交集部分数据**
+
+**语法：**
+
+```sql
+-- 左外连接
+SELECT 字段列表 FROM 表1 LEFT OUTER JOIN 表2 ON 条件;
+
+-- 右外连接
+SELECT 字段列表 FROM 表1 RIGHT OUTER JOIN 表2 ON 条件;
+```
+
+**案例：**
+
+- 查询emp表所有数据和对应的部门信息（左外连接）：
+
+```sql
+SELECT * FROM emp LEFT OUTER JOIN dept ON emp.dep_id = dept.did;
+```
+
+![image-20220425180741076](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-master/image-20220425180741076.png)
+
+结果显示查询到了 **左表（emp）** 中所有的数据及两张表能关联的数据（如图，尽管小白龙没有关联 **右表(dept)** ，但还是查出来了）
+
+- 查询dept表所有数据和对应的员工信息（右外连接）:
+
+```sql
+SELECT * FROM emp RIGHT OUTER JOIN dept ON emp.dep_id = dept.did;
+```
+
+![image-20220425181045343](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-master/image-20220425181045343.png)
+
+结果显示查询到了右表（dept）中所有的数据及两张表能关联的数据（如图，没和 **右表(dept)** 关联的小白龙没有查出来，但没有和 **左表(emp)** 关联的销售部查出来了）
+
+### 自连接
+
+> 概念：查询中单张表自己和自己连接
+>
+> 虽然查询的是同一张表，但可以看成对两张一样的表进行查询
+>
+> 必须使用别名
+
+**案例：**
+
+```mysql
+-- 查询员工及其所属领导的名字
+SELECT a.name, b.name FROM emp a, emp b WHERE a.manager_id = b.id;
+-- 查询员工及其所属领导的名字，如果员工没有领导，也需要查询出来
+SELECT a.name, b.name FROM emp a LEFT OUTER JOIN emp b ON a.manager_id = b.id;
+```
+
+### 联合查询
+
+> 概念：把多次查询的结果合并起来，形成一个新的查询结果集
+>
+> **联合查询要求多张表的列数必须保持一直，字段类型也需要保持一致**
+>
+> UNION ALL 会将所有数据直接合并在一起
+>
+> UNION 会将数据去重后合并
+
+**语法：**
+
+```mysql
+SELECT 字段列表 FROM 表A ...
+UNION [ALL]
+SELECT 字段列表 FROM 表B ...;
+```
+
+**案例：**
+
+```mysql
+-- 将薪资低于5000的员工,和年龄大于50岁的员工全部查询出来
+SELECT * FROM emp WHERE salary < 5000
+UNION ALL -- 添加ALL将不合并重复记录
+SELECT * FROM emp WHERE age > 50;
+```
+
+如图，1~5条为薪资低于5000的员工记录，6~9条为年龄大于50岁的员工记录，联合查询直接合并两个记录
+
+![image-20221026210315919](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221026210315919.png)
+
+### 子查询
+
+> 概念：查询中嵌套查询，称嵌套查询为子查询
+>
+> 分类：
+>
+> - 标量子查询（子查询结果为单个值）
+> - 列子查询（子查询结果为一列）
+> - 行子查询（子查询结果为一行）
+> - 表子查询（子查询为多行多列）
+
+**例如，查询工资A高于员工B的员工信息：**
+
+- 查询员工B的工资
+
+```sql
+SELECT salary FROM emp WHERE name = 'B'
+```
+
+- 查询工资高于员工B员工信息
+
+```sql
+SELECT * FROM emp WHERE salary > 3600;
+```
+
+**两个需求合二为一即子查询：**
+
+```sql
+SELECT * FROM emp WHERE salary > (SELECT salary FROM emp WHERE name = 'B');
+```
+
+![image-20220425182033357](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-master/image-20220425182033357.png)
+
+#### 标量子查询
+
+> 子查询返回的结果是单个值（数字、字符串、日期等），最简单的形式，这种子查询称为标量子查询。
+>
+> 常用的操作符：`=`、 `<>`、 `>`、 `>=`、 `<`、 `<=` 
+
+```mysql
+-- 查询在"方东白"入职之后的员工信息
+SELECT *
+FROM emp
+WHERE entrydate > (
+	SELECT entrydate
+	FROM emp
+	WHERE name = '方东白'
+);
+```
+
+#### 列子查询
+
+> 子查询返回的结果是一列（可以是多行），这种子查询称为列子查询。
+>
+> 常用的操作符：`IN`、`NOT IN`、`ANY`、`SOME`、`ALL`
+>
+> | 操作符 |                  描述                  |
+> | :----: | :------------------------------------: |
+> |   IN   |       在指定的集合范围内，多选一       |
+> | NOT IN |          不在指定的集合范围内          |
+> |  ANY   |  子查询返回列表中，有任意一个满足即可  |
+> |  SOME  | 与ANY等同，使用SOME的地方都可以使用ANY |
+> |  ALL   |    子查询返回列表的所有值都必须满足    |
+
+```mysql
+-- 查询比研发部其中任意一人工资高的员工信息
+SELECT *
+FROM emp
+WHERE salary > ANY (
+	SELECT salary
+	FROM emp
+	WHERE dept_id = (
+		SELECT id
+		FROM dept
+		WHERE name = '研发部'
+	)
+);
+```
+
+#### 行子查询
+
+> 子查询返回的结果是一行（可以是多列），这种子查询称为行子查询。
+>
+> 常用的操作符：`=` 、`<>` 、`IN` 、`NOT IN`
+
+```mysql
+-- 查询与"张无忌"的薪资及直属领导相同的员工信息
+SELECT *
+FROM emp
+WHERE (salary, managerid) = (
+	SELECT salary, managerid
+	FROM emp
+	WHERE name = '张无忌'
+);
+```
+
+#### 表子查询
+
+> 子查询返回的结果是多行多列，这种子查询称为表子查询。
+>
+> 常用的操作符：`IN`
+
+```mysql
+-- 查询与 "鹿杖客" , "宋远桥" 的职位和薪资相同的员工信息
+SELECT *
+FROM emp
+WHERE (job, salary) IN (
+	SELECT job, salary
+	FROM emp
+	WHERE name = '鹿杖客' OR name = '宋远桥'
+);
+
+
+-- 查询入职日期是 "2006-01-01" 之后的员工信息, 及其部门信息
+-- 子查询结果集别名e，部门表别名d
+SELECT e.*, d.*
+FROM (
+	SELECT *
+	FROM emp
+	WHERE entrydate > '2006-01-01'
+) e
+	LEFT OUTER JOIN dept d ON e.dept_id = d.id;
+```
 
 ## 数据库设计
 
@@ -1659,7 +1864,7 @@ UPDATE accounts SET balance = balance + 100 WHERE id = 2;
 ROLLBACK;
 ```
 
-### 数据不一致
+### 并发事务问题
 
 #### 脏读
 
@@ -1717,7 +1922,9 @@ A事务读取B事务尚未提交的数据，此时如果B事务发生错误并�
 |    7     |             第二次查询，数据总量为200条             |               |
 |   备注   | 按照正确逻辑，事务A前后两次读取到的数据总量应该一致 |               |
 
-### 隔离级别
+### 事务隔离级别
+
+#### 分类
 
 对于两个并发执行的事务，如果涉及到操作同一条记录的时候，可能会发生问题。因为并发操作会带来数据的不一致性，包括**脏读、不可重复读、幻读** 等。数据库系统提供了隔离级别来让我们有针对性地选择事务的隔离级别，避免数据不一致的问题。
 
@@ -1730,29 +1937,44 @@ A事务读取B事务尚未提交的数据，此时如果B事务发生错误并�
 | Repeatable Read  |         -          |                 -                 |         Yes          |
 |   Serializable   |         -          |                 -                 |          -           |
 
-#### Read Uncommitted
+##### Read Uncommitted
 
 ​	Read Uncommitted是隔离级别最低的一种事务级别。
 
 ​	在这种隔离级别下，一个事务会读到另一个事务更新后但未提交的数据，如果另一个事务回滚，那么当前事务读到的数据就是脏数据，这就是脏读（Dirty Read）
 
-#### Read Committed
+##### Read Committed
 
 ​	在Read Committed隔离级别下，一个事务可能会遇到不可重复读（Non Repeatable Read）的问题。
 
 ​	不可重复读是指，在一个事务内，多次读同一数据，在这个事务还没有结束时，如果另一个事务恰好修改了这个数据，那么，在第一个事务中，两次读取的数据就可能不一致。
 
-#### Repeatable Read
+##### Repeatable Read
 
 ​	在Repeatable Read隔离级别下，一个事务可能会遇到幻读（Phantom Read）的问题。
 
 ​	幻读是指，在一个事务中，第一次查询某条记录，发现没有，但是，当试图更新这条不存在的记录时，竟然能成功，并且，再次读取同一条记录，它就神奇地出现了。
 
-#### Serializable
+##### Serializable
 
 ​	Serializable是最严格的隔离级别。在Serializable隔离级别下，所有事务按照次序依次执行，因此，脏读、不可重复读、幻读都不会出现。
 
 ​	虽然Serializable隔离级别下的事务具有最高的安全性，但是，由于事务是串行执行，所以效率会大大下降，应用程序的性能会急剧降低。如果没有特别重要的情景，一般都不会使用Serializable隔离级别。
+
+#### 查看事务隔离级别
+
+```mysql
+SELECT @@TRANSACTION_ISOLATION;
+```
+
+#### 设置事务隔离级别
+
+```mysql
+SET 作用范围 TRANSACTION ISOLATION LEVEL 事务隔离级别
+-- session，会话级别，当前客户端窗口有效
+-- global，所有客户端会话窗口有效
+SET [ SESSION | GLOBAL ] TRANSACTION ISOLATION LEVEL { READ UNCOMMITTED | READ COMMITTED | REPEATABLE READ | SERIALIZABLE }
+```
 
 ## 其他语句
 
