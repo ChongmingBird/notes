@@ -1505,6 +1505,26 @@ SELECT * FROM emp WHERE age > 50;
 
 > 概念：查询中嵌套查询，称嵌套查询为子查询
 >
+> 子查询根据查询结果不同，作用不同：
+>
+>  * **单行单列：** 子查询语句作为条件值，使用 `= > < `等进行条件判断
+>
+>    ```sql
+>    SELECT 字段列表 FROM 表 WHERE 字段名 = (子查询);
+>    ```
+>
+>  * **多行单列：** 子查询语句作为条件值，使用`IN`等关键字进行条件判断
+>
+>    ```sql
+>    SELECT 字段列表 FROM 表 WHERE 字段名 IN(子查询);
+>    ```
+>
+>  * **多行多列：** 子查询语句作为虚拟表
+>
+>    ```sql
+>    SELECT 字段列表 FROM (子查询) WHERE 条件;
+>    ```
+>
 > 分类：
 >
 > - 标量子查询（子查询结果为单个值）
@@ -1777,29 +1797,7 @@ ALTER tb_order_goods ADD CONSTRAINT fk_goods_id FOREIGN KEY(goods_id) REFERENCES
 
 ![image-20220425153849088](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-master/image-20220425153849088.png)
 
-**场景：** 如果用户需要创建一个订单，选中3个商品，只需要在中间表中添加3条记录，每条记录记录下用户id和选中的商品id以及商品数量即可
-
-
-
-**子查询根据查询结果不同，作用不同：**
-
-* **单行单列：** 子查询语句作为条件值，使用 `= > < `等进行条件判断
-
-  ```sql
-  SELECT 字段列表 FROM 表 WHERE 字段名 = (子查询);
-  ```
-
-* **多行单列：** 子查询语句作为条件值，使用`IN`等关键字进行条件判断
-
-  ```sql
-  SELECT 字段列表 FROM 表 WHERE 字段名 IN(子查询);
-  ```
-
-* **多行多列：** 子查询语句作为虚拟表
-
-  ```sql
-  SELECT 字段列表 FROM (子查询) WHERE 条件;
-  ```
+**场景：** 如果用户需要创建一个订单，选中3个商品，只需要在中间表中添加3条记录，每条记录记录下用户id和选中的商品id以及商品数量即可。
 
 ## 事务
 
@@ -2321,6 +2319,8 @@ PS：并非索引的真实结构
 
 ### 索引结构
 
+#### 分类
+
 MySQL的索引是在存储引擎层实现的，不同的存储索引有不同的索引结构，主要包含以下几种：
 
 |          索引           |                             描述                             |
@@ -2341,7 +2341,7 @@ MySQL的索引是在存储引擎层实现的，不同的存储索引有不同的
 
 平时所说的索引，如果没有明确指明，都是指B+树结构组织的索引
 
-### B+Tree
+#### B+Tree索引
 
 > 树是包含n（n为整数，大于0）个结点， n-1条边的有穷集。
 >
@@ -2359,28 +2359,389 @@ MySQL的索引是在存储引擎层实现的，不同的存储索引有不同的
 > - 结点的度：一个结点含有的子结点个数
 > - 树的度：一棵树中最大结点的度
 > - 父结点：若一个结点含有子结点，则这个结点称为其子结点的父结点
+> - 孩子：结点的子树的根
 > - 深度：对于任意结点n，n的深度为从根到n的唯一路径长，其根结点的深度为0
 > - 高度：对于任意结点n，n的高度为从n到一片树叶的最长路径长，所有树叶的高度为0
 >
-> **种类：**
+> **种类(部分)：**
 >
 > - 二叉树：每个节点最多含有两个子树的树称为二叉树；
 > - 二叉查找树：首先它是一颗二叉树，若左子树不空，则左子树上所有结点的值均小于它的根结点的值；若右子树不空，则右子树上所有结点的值均大于它的根结点的值；左、右子树也分别为二叉排序树；
 > - 满二叉树：叶节点除外的所有节点均含有两个子树的树被称为满二叉树；
 > - 完全二叉树：如果一颗二叉树除去最后一层节点为满二叉树，且最后一层的结点依次从左到右分布
-> - 霍夫曼树：带权路径最短的二叉树。
-> - 红黑树：红黑树是一颗特殊的二叉查找树，每个节点都是黑色或者红色，根节点、叶子节点是黑色。如果一个节点是红色的，则它的子节点必须是黑色的。
 > - 平衡二叉树（AVL）：一棵空树或它的左右两个子树的高度差的绝对值不超过1，并且左右两个子树都是一棵平衡二叉树
 >
-> ****
+> **多路查找树：** 每一个结点的孩子数可以多余两个，并且每一个结点可以存储多个元素，所有元素之间存在某种特定的排序关系
 >
-> **B-树：**
+> - 2-3树：一个2结点包含一个元素和两个子结点，一个3结点包含一小一大两个元素和三个子结点
 >
-> **B+树：**
+>   ![image-20221031093450518](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221031093450518.png)
+>
+> - 2-3-4树：一个4结点包含小中大三个元素和四个子结点
+>
+
+**B树：** 
+
+B树是一种平衡的多路查找树，结点最大的孩子数目称为B树的阶。2-3树是3阶B树，2-3-4树是4阶B树
+
+**一个m阶的B树具有如下属性：**
+
+- 如果根结点不是叶子结点，则其至少有两棵子树
+- 如果一个非根的分支结点都有k-1个元素和k个孩子，其中⌈m/2⌉≤k≤m，每一个叶子结点n都有k-1个元素，其中⌈m/2⌉≤k≤m（即一个结点上最多有m-1个关键字,m个子树）
+- 所有叶子结点都位于同一层次
+- 所有分支结点包含下列信息数据(n,A0,K1,A1,K2,A2,...,Kn,An)
+  - Ki：关键字(key)，且Ki<Ki-1，(i=1,2,...,n-1)
+  - Ai：指向子树根结点的指针，(i=0,1,...,n)，
+    - Ai-1所指子树中所有结点的关键字均小于Ki
+    - Ai所指子树中所有结点的关键字均大于Ki
+  - n：关键字的个数（或n+1为子树的个数）
+
+![image-20221031095217916](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221031095217916.png)
+
+一棵最大度数为5(5阶)的B树，最大存储4个key，5个指针
+
+![image-20221031095743766](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221031095743766.png)
 
 
 
+**B+树：** 
 
+B+树是B树的变体，也是一棵多路查找树
+
+**一个m阶的B+树具有如下特点：**
+
+- 树中每个结点至多有m个子结点(即至多有m-1个关键字)，非根节点关键字个数范围：⌈m/2⌉-1≤k≤m-1
+- 所有的叶子结点中包含了全部元素的信息，及指向含这些元素记录的指针。且叶子结点本身依关键字的大小，自小而大顺序链接。
+- 所有分支结点可以看成是索引，结点中仅含有其子树中的最大(或最小)关键字
+
+![image-20221031141942123](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221031141942123.png)
+
+相比于B树，B+树有以下三点区别：
+
+- 所有的数据都会出现在叶子结点
+- 叶子结点形成一个单向链表
+- 非叶子结点仅仅起到索引数据的作用，具体的数据存放在叶子结点中
+
+**MySQL索引数据结构对经典的B+Tree进行了优化。在原B+Tree的基础上，增加一个指向相邻叶子节点的链表指针，就形成了带有顺序指针的B+Tree，提高区间访问的性能，利于范围查询和排序。**
+
+![image-20221031142818053](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221031142818053.png)
+
+#### Hash索引
+
+**结构：** 
+
+哈希索引就是采用一定的hash算法，将键值换算成新的hash值，映射到对应的槽位上，然后存储在hash表中。
+
+![image-20221031143023989](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221031143023989.png)
+
+如果两个或多个键值映射到同一个槽位上，就产生了hash冲突(哈希碰撞)，可以通过链表解决。
+
+![image-20221031143118169](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221031143118169.png)
+
+**特点：**
+
+- Hash索引只能用于对等比较(=,in)，不支持范围查询(between,>,<,...)
+- 无法利用索引完成排序操作
+- 查询效率高，通常只需要一次检索(前提是不出现hash碰撞)，效率通常要高于B+Tree
+
+**存储引擎支持：**
+
+在Mysql中，支持hash索引的是Memory存储引擎。而InnoDB中具有自适应hash功能，在特定情况下会跟回B+Tree索引自动构建成hash索引
+
+### 索引分类
+
+|   分类   |                         含义                         |              特点              |   关键字   |
+| :------: | :--------------------------------------------------: | :----------------------------: | :--------: |
+| 主键索引 |                针对表中主键创建的索引                |    默认自动创建，只能有一个    | `PRIMARY`  |
+| 唯一索引 |           避免同一个表中某数据列中的值重复           | 添加约束时自动创建，可以有多个 |  `UNIQUE`  |
+| 常规索引 |                   快速定位特定数据                   |           可以有多个           |            |
+| 全文索引 | 全文索引查找的是文本中的关键字，而不是比较索引中的值 |           可以有多个           | `FULLTEXT` |
+
+### 聚集索引&二级索引
+
+**在InnoDB存储引擎中，根据索引的存储形式，可以分为以下两种：**
+
+|             分类              |                            含义                            |         特点         |
+| :---------------------------: | :--------------------------------------------------------: | :------------------: |
+| **聚集索引(Clustered Index)** | 将数据存储与索引放到了一块，索引结构的叶子结点保存了行数据 | 必须有，且只能有一个 |
+| **二级索引(Secondary Index)** | 将数据与索引分开存储，索引结构的叶子结点关联的是对应的主键 |     可以存在多个     |
+
+聚集索引选取规则：
+
+- 如果存在主键，主键索引就是聚集索引。
+- 如果不存在主键，将使用第一个唯一（UNIQUE）索引作为聚集索引。
+
+- 如果表没有主键，或没有合适的唯一索引，则InnoDB会自动生成一个rowid作为隐藏的聚集索引。
+
+聚集索引和二级索引的具体结构如下：
+
+![image-20221031144645054](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221031144645054.png)
+
+- 聚集索引的叶子结点下挂的是这一行的数据
+- 二级索引的叶子结点下面挂的是该字段对应的主键值
+
+
+
+执行SQL语句时，具体的查找过程：
+
+![image-20221031144837080](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221031144837080.png)
+
+1. 由于是根据name字段进行查询，所以先根据name='Arm'到name字段的二级索引进行匹配查找。但是在二级索引中只能查找到Arm对应的主键值10
+2. 由于查询返回的数据是*，所以根据主键值10，到聚集索引中查找到10对应的记录，最终找到10对应的行row
+3. 最终拿到这一行的数据并返回
+
+> 回表查询：这种先到二级索引中查找数据，找到主键值，然后再到聚集索引中根据主键值，获取数据的方式，就称之为回表查询。
+
+### 语法
+
+- **创建索引：**
+
+```mysql
+-- UNIQUE 创建唯一索引
+-- FULLTEXT 创建全文索引
+
+-- 单列索引：关联一个列
+-- 联合索引：关联多列
+CREATE [ UNIQUE | FULLTEXT ] INDEX 索引名 ON 表名(列名列表);
+```
+
+- **查看索引：**
+
+```mysql
+-- SHOW INDEX FROM 表名\G; 表太长会在命令行中变形，可以转换成键值显示
+SHOW INDEX FROM 表名;
+```
+
+- **删除索引：**
+
+```mysql
+DROP INDEX 索引名 ON表名;
+```
+
+**索引命名格式：** `idx_表名_列名`
+
+**案例：**
+
+```mysql
+-- name字段为姓名字段，该字段的值可能会重复，为该字段创建索引。
+CREATE INDEX idx_user_name ON tb_user(name);
+
+-- phone手机号字段的值，是非空，且唯一的，为该字段创建唯一索引。
+CREATE UNIQUE INDEX idx_user_phone ON tb_user(phone);
+
+-- 为profession、age、status创建联合索引。
+CREATE INDEX idx_user_pro_age_sta ON tb_user(profession,age,status);
+
+-- 为email建立合适的索引来提升查询效率。
+CREATE INDEX idx_user_pro_age_sta ON tb_user(profession,age,status);
+
+-- 删除idx_user_email索引
+DROP INDEX idx_user_email ON tb_user;
+```
+
+![image-20221101091757458](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221101091757458.png)
+
+### 性能分析工具
+
+#### SQL执行频率
+
+MySQL 客户端连接成功后，通过`show [session|global] status`命令可以提供服务器状态信息，查看当前数据库的INSERT、UPDATE、DELETE、SELECT的访问频次：
+
+```mysql
+-- SESSION 查看当前会话
+-- GLOBAL 查询全局数据
+-- Com______：1个下划线+6个模糊匹配字符(下划线)
+SHOW [SESSION|GLOBAL] STATUS LIKE 'Com______';
+
+-- Com_delete: 删除次数
+-- Com_insert: 插入次数
+-- Com_select: 查询次数
+-- Com_update: 更新次数
+```
+
+**案例：**
+
+```mysql
+mysql> SHOW GLOBAL STATUS LIKE 'Com_______';
++---------------+--------+
+| Variable_name | Value  |
++---------------+--------+
+| Com_binlog    | 0      |
+| Com_commit    | 66     |
+| Com_delete    | 0      |
+| Com_import    | 0      |
+| Com_insert    | 177    |
+| Com_repair    | 0      |
+| Com_revoke    | 0      |
+| Com_select    | 161481 |
+| Com_signal    | 0      |
+| Com_update    | 8      |
+| Com_xa_end    | 0      |
++---------------+--------+
+11 rows in set (0.00 sec)
+```
+
+通过上述指令可以查看到当前数据库到底是以查询为主，还是以增删改为主，从而为数据库优化提供参考依据。 
+
+如果是以增删改为主，我们可以考虑不对其进行索引的优化。如果是以查询为主，那么就要考虑对数据库的索引进行优化了。
+
+#### 慢查询日志
+
+慢查询日志记录了所有执行时间超过指定参数（long_query_time，单位：秒，默认10秒）的所有SQL语句的日志。
+
+MySQL的慢查询日志默认没有开启：
+
+```mysql
+-- 查看慢查询参数是否开启
+mysql> SHOW VARIABLES LIKE 'slow_query_log';
++----------------+-------+
+| Variable_name  | Value |
++----------------+-------+
+| slow_query_log | OFF   |
++----------------+-------+
+```
+
+开启慢查询日志，需要在MySQL的配置文件（/etc/my.cnf）中配置如下信息：
+
+```shell
+# 开启MySQL慢日志查询开关
+slow_query_log=1
+
+#配置日志地址
+slow-query-log-file=/www/server/data/mysql-slow.log
+
+# 设置慢日志的时间为2秒，SQL语句执行时间超过2秒，就会视为慢查询，记录慢查询日志
+long_query_time=2
+```
+
+重启Mysql服务：`systemctl restart mysqld `
+
+**测试：**
+
+```mysql
+# 在目录/www/server/data下找到慢日志文件mysql-slow.log
+# 实时输出慢日志尾部写入的内容
+tail -f mysql-slow.log
+
+-- 输入查询
+SELECT  COUNT(*) FROM tb_sku;
+-- 用时两分钟
+| COUNT(*) |
++----------+
+|  9998112 |
++----------+
+1 row in set (2 min 9.83 sec)
+
+-- 慢日志输出的日志信息：
+
+# Time: 2022-11-01T02:29:27.489483Z
+# User@Host: root[root] @  [60.223.17.56]  Id: 133100
+# Query_time: 130.072571  Lock_time: 0.000153 Rows_sent: 1  Rows_examined: 0
+SET timestamp=1667269637;
+/* ApplicationName=DataGrip 2022.2.5 */ SELECT COUNT(*) FROM tb_sku;
+
+```
+
+通过慢查询日志，可以定位出执行效率比较低的SQL，从而有针对性的进行优化。
+
+#### PROFILE
+
+`SHOW PROFILES`能够显示时间都耗费到哪里。
+
+通过have_profiling参数，可以看到当前MySQL是否支持profile操作：
+
+```mysql
+SELECT @@have_profiling;
+
+-- 数据库是支持profile操作
+mysql> SELECT @@have_profiling;
++------------------+
+| @@have_profiling |
++------------------+
+| YES              |
++------------------+
+1 row in set, 1 warning (0.00 sec)
+```
+
+但数据库默认关闭profiling操作，可以通过set语句在session/global级别开启profiling：
+
+```mysql
+-- 数据库默认profiling开关关闭
+mysql> SELECT @@profiling;
++-------------+
+| @@profiling |
++-------------+
+|           0 |
++-------------+
+1 row in set, 1 warning (0.00 sec)
+
+-- 开启profiling
+SET profiling = 1;
+```
+
+开启后，执行一系列SQL操作，可以通过如下指令查看指令的执行耗时：
+
+```mysql
+-- 查看每一条SQL的耗时基本情况
+SHOW PROFILES;
+-- 查看指定query_id的SQL语句各个阶段的耗时情况
+SHOW PROFILE FOR QUERY query_id;
+-- 查看指定query_id的SQL语句CPU的使用情况
+SHOW PROFILE CPU FOR QUERY query_id;
+```
+
+**案例：**
+
+```mysql
+-- 执行SQL语句
+SELECT * FROM tb_user;
+SELECT * FROM tb_user WHERE name = '白起';
+SELECT COUNT(*) FROM tb_sku;
+SELECT * FROM tb_user WHERE id = 1;
+```
+
+- `SHOW PROFILES;` ：查看每一条SQL的耗时情况
+
+![image-20221101104540151](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221101104540151.png)
+
+> 注意根据name查询是id查询的10倍，因为name查询是回表查询
+
+- `SHOW PROFILE FOR QUERY 4;`：查看指定id=4的SQL语句各个阶段的耗时情况
+
+![image-20221101104823114](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221101104823114.png)
+
+- `SHOW PROFILE CPU FOR QUERY;`：查看指定id的SQL语句的CPU使用情况
+
+![image-20221101104903554](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221101104903554.png)
+
+#### EXPLAIN
+
+通过`EXPLAIN`或者`DESC`命令可以获取MySQL如何执行SELECT语句的信息，包括在SELECT语句执行过程中表如何连接和连接的顺序。
+
+**语法：**
+
+```mysql
+-- 直接在SELEC语句之前加上关键字 EXPLAIN/DESC
+[EXPLAIN/DESC] SELECT 字段列表 FROM 表名 WHERE 条件 ;
+```
+
+![image-20221101105330968](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221101105330968.png)
+
+**执行计划各列字段含义：** (*表示重点关注)
+
+| 字段            | 含义                                                         |
+| :-------------- | :----------------------------------------------------------- |
+| `id`            | SELECT查询的序列号，表示查询中执行SELECT子句或者是操作表的顺序（id相同，执行顺序从上到下；id不同，值越大，越先执行） |
+| `select_type`   | 表示 SELECT 的类型，常见的取值有：<br />SIMPLE（简单表，无表连接或子查询）<br />PRIMARY（主查询，即外层的查询）<br />UNION（联合查询中的第二个或后面的查询语句）<br />SUBQUERY（SELECT/WHERE之后的语句包含子查询）<br />等 |
+| <br />*`type`   | 表示连接类型，性能由好到差的连接类型为<br />NULL<br />system<br />const<br />eq_ref<br />ref<br />range<br />index<br />all |
+| *`possible_key` | 显示这张表上可能用到的一个或多个索引                         |
+| *`key`          | 实际使用的索引，如果为NULL，则没有使用索引                   |
+| *`key_len`      | 表示索引中使用的字节数，该值为索引字段最大可能长度，并非实际使用长度，在不损失精确性的前提下，长度越短越好 |
+| `rows`          | MySQL认为必须要执行查询的行数，在innodb引擎的表中，是一个估计值，可能并不总是准确的 |
+| `filtered`      | 表示返回结果的行数占需读取行数的百分比，filtered的值越大越好 |
+| `Extra`         | 额外信息                                                     |
+
+### 索引使用规则
 
 ## SQL优化
 
