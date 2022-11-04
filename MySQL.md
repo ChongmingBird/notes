@@ -1501,7 +1501,7 @@ SELECT * FROM emp WHERE age > 50;
 
 ![image-20221026210315919](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221026210315919.png)
 
-### 子查询
+## 子查询
 
 > 概念：查询中嵌套查询，称嵌套查询为子查询
 >
@@ -1516,7 +1516,7 @@ SELECT * FROM emp WHERE age > 50;
 >  * **多行单列：** 子查询语句作为条件值，使用`IN`等关键字进行条件判断
 >
 >    ```sql
->    SELECT 字段列表 FROM 表 WHERE 字段名 IN(子查询);
+>    SELECT 字段列表 FROM 表 WHERE (字段列表) IN (子查询);
 >    ```
 >
 >  * **多行多列：** 子查询语句作为虚拟表
@@ -1554,7 +1554,7 @@ SELECT * FROM emp WHERE salary > (SELECT salary FROM emp WHERE name = 'B');
 
 ![image-20220425182033357](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-master/image-20220425182033357.png)
 
-#### 标量子查询
+### 标量子查询
 
 > 子查询返回的结果是单个值（数字、字符串、日期等），最简单的形式，这种子查询称为标量子查询。
 >
@@ -1571,7 +1571,7 @@ WHERE entrydate > (
 );
 ```
 
-#### 列子查询
+### 列子查询
 
 > 子查询返回的结果是一列（可以是多行），这种子查询称为列子查询。
 >
@@ -1600,7 +1600,7 @@ WHERE salary > ANY (
 );
 ```
 
-#### 行子查询
+### 行子查询
 
 > 子查询返回的结果是一行（可以是多列），这种子查询称为行子查询。
 >
@@ -1617,11 +1617,13 @@ WHERE (salary, managerid) = (
 );
 ```
 
-#### 表子查询
+### 表子查询
 
 > 子查询返回的结果是多行多列，这种子查询称为表子查询。
 >
 > 常用的操作符：`IN`
+>
+> 每一个派生表必须起别名
 
 ```mysql
 -- 查询与 "鹿杖客" , "宋远桥" 的职位和薪资相同的员工信息
@@ -2515,7 +2517,7 @@ SHOW INDEX FROM 表名;
 - **删除索引：**
 
 ```mysql
-DROP INDEX 索引名 ON表名;
+DROP INDEX 索引名 ON 表名;
 ```
 
 **索引命名格式：** `idx_表名_列名`
@@ -2533,7 +2535,7 @@ CREATE UNIQUE INDEX idx_user_phone ON tb_user(phone);
 CREATE INDEX idx_user_pro_age_sta ON tb_user(profession,age,status);
 
 -- 为email建立合适的索引来提升查询效率。
-CREATE INDEX idx_user_pro_age_sta ON tb_user(profession,age,status);
+CREATE INDEX idx_user_email ON tb_user(email);
 
 -- 删除idx_user_email索引
 DROP INDEX idx_user_email ON tb_user;
@@ -2541,9 +2543,93 @@ DROP INDEX idx_user_email ON tb_user;
 
 ![image-20221101091757458](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221101091757458.png)
 
-### 性能分析工具
+### 验证索引效率
 
-#### SQL执行频率
+- 无索引查询
+
+```mysql
+-- 根据sn字段查询
+SELECT * FROM tb_sku WHERE sn = '100000003145001';
+-- 耗时特别长，用了两分钟
+1 row in set (2 min 1.94 sec)
+```
+
+- 为sn字段构建索引
+
+```mysql
+-- 为sn字段构建索引，需要构建B+树索引结构，耗时较长
+CREATE INDEX idx_sku_sn ON tb_sku(sn);
+
+Query OK, 0 rows affected (4 min 21.72 sec)
+```
+
+- 有索引查询
+
+```mysql
+SELECT * FROM tb_sku WHERE sn = '100000003145001';
+-- 耗时显著减少
+1 row in set (0.00 sec)
+```
+
+### 索引使用规则
+
+#### 最左前缀法则
+
+若使用联合索引，要遵守最左前缀法则
+
+**最左前缀法则:** 
+
+查询要从索引的最左列开始，且不能跳过索引中的列。若跳跃某一列，索引将会部分失效（后面的字段索引失效）
+
+![image-20221104105930733](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221104105930733.png)
+
+如上图所示的联合索引，若需使索引生效，查询时最左边的列，也就是profession字段必须存在，且若无age字段，则status会失效
+
+**案例：**
+
+- ```mysql
+  -- 索引生效
+  EXPLAIN SELECT * FROM tb_user WHERE profession='软件工程' AND age='31' AND status='0';
+  ```
+
+  ![image-20221104133233620](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221104133233620.png)
+
+  注意此时索引长度为54，此时联合索引完全生效
+
+- ```mysql
+  -- 缺少最左列professing，索引失效
+  EXPLAIN SELECT * FROM tb_user WHERE age='31' AND status='0';
+  ```
+
+  ![image-20221104133316000](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221104133316000.png)
+
+  注意此时索引失效，查询采用全表扫描
+
+- ```mysql
+  -- 索引仅生效于针对profession的匹配，因为缺少age，所以针对status的匹配失效
+  EXPLAIN SELECT * FROM tb_user WHERE profession='软件工程' AND status='0';
+  ```
+
+  ![image-20221104133423389](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221104133423389.png)
+
+  注意此时索引虽然生效，但索引长度减少到47，即索引部分生效。
+
+- ```mysql
+  -- 索引长度为54，索引全部生效
+  EXPLAIN SELECT * FROM tb_user WHERE profession='软件工程' AND age='31' AND status='0';
+  -- 索引长度为49，索引仅生效profession和age
+  EXPLAIN SELECT * FROM tb_user WHERE profession='软件工程' AND age='31';
+  -- 索引长度为47，索引仅上校profession
+  EXPLAIN SELECT * FROM tb_user WHERE profession='软件工程';
+  ```
+
+  根据索引长度，可以推断出profession字段索引长度为47，age字段索引长度为2，status字段索引长度为5，联合索引总长度54。
+
+> 最左前缀法则中，最左边的列，是指在查询时，联合索引的最左边的字段(即是第一个字段)必须存在， 与编写SQL时条件编写的先后顺序无关
+
+## 性能分析工具
+
+### SQL执行频率
 
 MySQL 客户端连接成功后，通过`show [session|global] status`命令可以提供服务器状态信息，查看当前数据库的INSERT、UPDATE、DELETE、SELECT的访问频次：
 
@@ -2585,7 +2671,7 @@ mysql> SHOW GLOBAL STATUS LIKE 'Com_______';
 
 如果是以增删改为主，我们可以考虑不对其进行索引的优化。如果是以查询为主，那么就要考虑对数据库的索引进行优化了。
 
-#### 慢查询日志
+### 慢查询日志
 
 慢查询日志记录了所有执行时间超过指定参数（long_query_time，单位：秒，默认10秒）的所有SQL语句的日志。
 
@@ -2601,17 +2687,24 @@ mysql> SHOW VARIABLES LIKE 'slow_query_log';
 +----------------+-------+
 ```
 
-开启慢查询日志，需要在MySQL的配置文件（/etc/my.cnf）中配置如下信息：
+- 开启慢查询日志，需要在MySQL的配置文件（/etc/my.cnf）中配置如下信息：
+
 
 ```shell
 # 开启MySQL慢日志查询开关
 slow_query_log=1
-
 #配置日志地址
-slow-query-log-file=/www/server/data/mysql-slow.log
-
+slow-query-log-file=/var/lib/mysql/localhost-slow.log
 # 设置慢日志的时间为2秒，SQL语句执行时间超过2秒，就会视为慢查询，记录慢查询日志
 long_query_time=2
+```
+
+- 通过命令开启慢查询（临时，MySQL重启后失效）
+
+```mysql
+SET GLOBAL slow_query_log='ON';
+SET GLOBAL long_query_time=2;
+SET GLOBAL slow_query_log_file='/var/lib/mysql/localhost-slow.log'
 ```
 
 重启Mysql服务：`systemctl restart mysqld `
@@ -2621,10 +2714,10 @@ long_query_time=2
 ```mysql
 # 在目录/www/server/data下找到慢日志文件mysql-slow.log
 # 实时输出慢日志尾部写入的内容
-tail -f mysql-slow.log
+tail -f localhost-slow.log
 
 -- 输入查询
-SELECT  COUNT(*) FROM tb_sku;
+SELECT COUNT(*) FROM tb_sku;
 -- 用时两分钟
 | COUNT(*) |
 +----------+
@@ -2644,7 +2737,7 @@ SET timestamp=1667269637;
 
 通过慢查询日志，可以定位出执行效率比较低的SQL，从而有针对性的进行优化。
 
-#### PROFILE
+### PROFILE
 
 `SHOW PROFILES`能够显示时间都耗费到哪里。
 
@@ -2714,7 +2807,7 @@ SELECT * FROM tb_user WHERE id = 1;
 
 ![image-20221101104903554](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221101104903554.png)
 
-#### EXPLAIN
+### EXPLAIN
 
 通过`EXPLAIN`或者`DESC`命令可以获取MySQL如何执行SELECT语句的信息，包括在SELECT语句执行过程中表如何连接和连接的顺序。
 
@@ -2741,7 +2834,9 @@ SELECT * FROM tb_user WHERE id = 1;
 | `filtered`      | 表示返回结果的行数占需读取行数的百分比，filtered的值越大越好 |
 | `Extra`         | 额外信息                                                     |
 
-### 索引使用规则
+
+
+
 
 ## SQL优化
 
