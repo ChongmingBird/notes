@@ -250,6 +250,119 @@ BigDecimal把数据看成字符串（包括符号位），遍历得到里面的�
 
 ![image-20230204151447061](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230204151447061.png)
 
+## JDK7时间相关类
+
+### Date
+
+`java.util.Date`类表示特定的瞬间，精确到毫秒。
+
+**构造方法：**
+
+- `public Date()`：从运行程序的此时此刻到时间原点经历的毫秒值,转换成Date对象，分配Date对象并初始化此对象，以表示分配它的时间（精确到毫秒）。
+- `public Date(long date)`：将指定参数的毫秒值date转换成Date对象，分配Date对象并初始化此对象，以表示自从标准基准时间（称为“历元（epoch）”，即1970年1月1日00:00:00 GMT）以来的指定毫秒数。
+- 简单来说：使用无参构造，可以自动设置当前系统时间的毫秒时刻；指定long类型的构造参数，可以自定义毫秒时刻
+
+> tips: 由于中国处于东八区（GMT+08:00）比格林尼治时间（GMT）快8小时的时区，当格林尼治标准时间为0:00时，东八区的标准时间为08:00。
+
+**常用方法：** Date类中的多数方法已经过时，常用的方法如下
+
+- `public long getTime()` 把日期对象转换成对应的时间毫秒值。
+- `public void setTime(long time)` 修改日期对象的毫秒值为方法参数
+
+### SimpleDateFormat
+
+`java.text.SimpleDateFormat` 是日期/时间格式化类，通过这个类可以完成日期和文本之间的转换, **也就是可以在Date对象与String对象之间进行来回转换。**
+
+- **格式化**：按照指定的格式，把Date对象转换为String对象。
+- **解析**：按照指定的格式，把String对象转换为Date对象。
+
+**构造方法：**
+
+DateFormat为抽象类，不能直接使用，需要常用的子类`java.text.SimpleDateFormat`。
+
+这个类需要一个模式（格式）来指定格式化或解析的标准。
+
+- `public SimpleDateFormat(String pattern)`：用给定的模式和默认语言环境的日期格式符号构造SimpleDateFormat。参数pattern是一个字符串，代表日期时间的自定义格式。
+
+- **格式规则：**
+
+  - | 标识字母（区分大小写） | 含义 |
+    | ---------------------- | ---- |
+    | y                      | 年   |
+    | M                      | 月   |
+    | d                      | 日   |
+    | H                      | 时   |
+    | m                      | 分   |
+    | s                      | 秒   |
+
+  - `yyyy-MM-dd HH:mm:ss` -> `2023-02-04 17:35:26`
+
+  > 备注：更详细的格式规则，可以参考SimpleDateFormat类的API文档。
+
+**常用方法：**
+
+- `public String format(Date date)`：将Date对象格式化为字符串。
+- `public Date parse(String source)`：将字符串解析为Date对象。
+
+### Calendar
+
+- `java.util.Calendar`类表示一个“日历类”，可以进行日期运算。
+
+  它是一个抽象类，不能创建对象，可以使用它的子类：`java.util.GregorianCalendar`类。
+
+- 有两种方式可以获取GregorianCalendar对象：
+
+  - 直接创建GregorianCalendar对象；
+
+  - 通过Calendar的静态方法getInstance()方法获取GregorianCalendar对象
+
+    ```java
+    /**
+     * 底层原理：
+     * 根据系统的不同时区获取不同的日历对象
+     * 把时间中的纪元、年、月、日等放入一个数组当中
+     */
+    Calendar calendar = Calendar.getInstance();
+    ```
+
+![](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230204174457352.png)
+
+**星期：周日(1) 周一(2) 周二(3) …… 周六(7)**
+
+**字段：**
+
+| 常量                   | 含义                                                         |
+| :--------------------- | :----------------------------------------------------------- |
+| `YEAR`                 | 当前年                                                       |
+| `MONTH`                | 当前月(从0开始)                                              |
+| `DAY_OF_MONTH`         | 当前日                                                       |
+| `DATE`                 | 当前日(与DAY_OF_MONTH意思一样)                               |
+| `HOUR_OF_DAY`          | 当前小时(24小时制)                                           |
+| `HOUR`                 | 当前小时(12小时制)                                           |
+| `MINUTE`               | 当前分钟                                                     |
+| `SECOND`               | 当前秒                                                       |
+| `DAY_OF_WEEK`          | 当前星期几(用数字（1~7）表示（星期日~星期六），用的时候需要 -1) |
+| `AM_PM`                | 当前是上午还是下午(0-上午；1-下午)                           |
+| `WEEK_OF_YEAR`         | 当前年的第几周                                               |
+| `WEEK_OF_MONTH`        | 当前月的星期数                                               |
+| `DAY_OF_WEEK_IN_MONTH` | 当前月的第几个星期                                           |
+| `DAY_OF_YEAR`          | 当前年的第几天                                               |
+
+1. 在获取月份时，`Calendar.MONTH + 1` 的原因：
+   - Java中的月份遵循了罗马历中的规则：当时一年中的月份数量是不固定的，第一个月是JANUARY。
+   - 而Java中Calendar.MONTH返回的数值其实是当前月距离第一个月有多少个月份的数值 **（即Calendar中的月份是0-11）** JANUARY在Java中返回“0”，所以我们需要+1。
+
+2. 在获取星期几 `Calendar.DAY_OF_WEEK – 1` 的原因：
+   - Java中`Calendar.DAY_OF_WEEK`其实表示：一周中的第几天，所以他会受到 **第一天是星期几** 的影响
+   - 有些地区以星期日作为一周的第一天，而有些地区以星期一作为一周的第一天，需要区分这两种，**当周日为第一天时，所得的星期需要-1**
+   - 所以Calendar.DAY_OF_WEEK需要根据本地化设置的不同而确定是否需要 “-1”（默认周日为第一天）
+   - Java中设置不同地区的输出可以使用 `Locale.setDefault(Locale.地区名) `来实现。
+   - 可以主动设置每周的第一天：`Calendar.setFirstDayOfWeek(Calendar.MONDAY)`
+
+## JDK8时间相关类
+
+### 
+
 # 【正则表达式】
 
 [教程：learn-regex](https://github.com/ziishaned/learn-regex/blob/master/translations/README-cn.md)
