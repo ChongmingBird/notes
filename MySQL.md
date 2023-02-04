@@ -2571,65 +2571,9 @@ SELECT * FROM tb_sku WHERE sn = '100000003145001';
 1 row in set (0.00 sec)
 ```
 
-### 索引使用规则
+### 性能分析工具
 
-#### 最左前缀法则
-
-若使用联合索引，要遵守最左前缀法则
-
-**最左前缀法则:** 
-
-查询要从索引的最左列开始，且不能跳过索引中的列。若跳跃某一列，索引将会部分失效（后面的字段索引失效）
-
-![image-20221104105930733](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221104105930733.png)
-
-如上图所示的联合索引，若需使索引生效，查询时最左边的列，也就是profession字段必须存在，且若无age字段，则status会失效
-
-**案例：**
-
-- ```mysql
-  -- 索引生效
-  EXPLAIN SELECT * FROM tb_user WHERE profession='软件工程' AND age='31' AND status='0';
-  ```
-
-  ![image-20221104133233620](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221104133233620.png)
-
-  注意此时索引长度为54，此时联合索引完全生效
-
-- ```mysql
-  -- 缺少最左列professing，索引失效
-  EXPLAIN SELECT * FROM tb_user WHERE age='31' AND status='0';
-  ```
-
-  ![image-20221104133316000](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221104133316000.png)
-
-  注意此时索引失效，查询采用全表扫描
-
-- ```mysql
-  -- 索引仅生效于针对profession的匹配，因为缺少age，所以针对status的匹配失效
-  EXPLAIN SELECT * FROM tb_user WHERE profession='软件工程' AND status='0';
-  ```
-
-  ![image-20221104133423389](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221104133423389.png)
-
-  注意此时索引虽然生效，但索引长度减少到47，即索引部分生效。
-
-- ```mysql
-  -- 索引长度为54，索引全部生效
-  EXPLAIN SELECT * FROM tb_user WHERE profession='软件工程' AND age='31' AND status='0';
-  -- 索引长度为49，索引仅生效profession和age
-  EXPLAIN SELECT * FROM tb_user WHERE profession='软件工程' AND age='31';
-  -- 索引长度为47，索引仅上校profession
-  EXPLAIN SELECT * FROM tb_user WHERE profession='软件工程';
-  ```
-
-  根据索引长度，可以推断出profession字段索引长度为47，age字段索引长度为2，status字段索引长度为5，联合索引总长度54。
-
-> 最左前缀法则中，最左边的列，是指在查询时，联合索引的最左边的字段(即是第一个字段)必须存在， 与编写SQL时条件编写的先后顺序无关
-
-## 性能分析工具
-
-### SQL执行频率
+#### SQL执行频率
 
 MySQL 客户端连接成功后，通过`show [session|global] status`命令可以提供服务器状态信息，查看当前数据库的INSERT、UPDATE、DELETE、SELECT的访问频次：
 
@@ -2671,7 +2615,7 @@ mysql> SHOW GLOBAL STATUS LIKE 'Com_______';
 
 如果是以增删改为主，我们可以考虑不对其进行索引的优化。如果是以查询为主，那么就要考虑对数据库的索引进行优化了。
 
-### 慢查询日志
+#### 慢查询日志
 
 慢查询日志记录了所有执行时间超过指定参数（long_query_time，单位：秒，默认10秒）的所有SQL语句的日志。
 
@@ -2737,7 +2681,7 @@ SET timestamp=1667269637;
 
 通过慢查询日志，可以定位出执行效率比较低的SQL，从而有针对性的进行优化。
 
-### PROFILE
+#### PROFILE
 
 `SHOW PROFILES`能够显示时间都耗费到哪里。
 
@@ -2807,7 +2751,7 @@ SELECT * FROM tb_user WHERE id = 1;
 
 ![image-20221101104903554](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221101104903554.png)
 
-### EXPLAIN
+#### EXPLAIN
 
 通过`EXPLAIN`或者`DESC`命令可以获取MySQL如何执行SELECT语句的信息，包括在SELECT语句执行过程中表如何连接和连接的顺序。
 
@@ -2834,9 +2778,268 @@ SELECT * FROM tb_user WHERE id = 1;
 | `filtered`      | 表示返回结果的行数占需读取行数的百分比，filtered的值越大越好 |
 | `Extra`         | 额外信息                                                     |
 
+### 索引使用规则
+
+#### 最左前缀法则
+
+若使用联合索引，要遵守最左前缀法则
+
+**最左前缀法则:** 
+
+查询要从索引的最左列开始，且不能跳过索引中的列。若跳跃某一列，索引将会部分失效（后面的字段索引失效）
+
+![image-20221104105930733](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221104105930733.png)
+
+如上图所示的联合索引，若需使索引生效，查询时最左边的列，也就是profession字段必须存在，且若无age字段，则status会失效
+
+**案例：**
+
+- ```mysql
+  -- 索引生效
+  EXPLAIN SELECT * FROM tb_user WHERE profession='软件工程' AND age='31' AND status='0';
+  ```
+
+  ![image-20221104133233620](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221104133233620.png)
+
+  注意此时索引长度为54，此时联合索引完全生效
+
+- ```mysql
+  -- 缺少最左列professing，索引失效
+  EXPLAIN SELECT * FROM tb_user WHERE age='31' AND status='0';
+  ```
+
+  ![image-20221104133316000](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221104133316000.png)
+
+  注意此时索引失效，查询采用全表扫描
+
+- ```mysql
+  -- 索引仅生效于针对profession的匹配，因为缺少age，所以针对status的匹配失效
+  EXPLAIN SELECT * FROM tb_user WHERE profession='软件工程' AND status='0';
+  ```
+
+  ![image-20221104133423389](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221104133423389.png)
+
+  注意此时索引虽然生效，但索引长度减少到47，即索引部分生效。
+
+- ```mysql
+  -- 索引长度为54，索引全部生效
+  EXPLAIN SELECT * FROM tb_user WHERE profession='软件工程' AND age='31' AND status='0';
+  -- 索引长度为49，索引仅生效profession和age
+  EXPLAIN SELECT * FROM tb_user WHERE profession='软件工程' AND age='31';
+  -- 索引长度为47，索引仅上校profession
+  EXPLAIN SELECT * FROM tb_user WHERE profession='软件工程';
+  ```
+
+  根据索引长度，可以推断出profession字段索引长度为47，age字段索引长度为2，status字段索引长度为5，联合索引总长度54。
+
+> 最左前缀法则中，最左边的列，是指在查询时，联合索引的最左边的字段(即是第一个字段)必须存在， 与编写SQL时条件编写的先后顺序无关
+
+#### 范围查询
+
+- 联合查询中，当范围查询使用`>`，`<`，范围查询右侧的字段索引失效
+
+```mysql
+-- status字段索引失效
+EXPLAIN SELECT * FROM tb_user WHERE profession = '软件工程' AND age > 30 AND status = '0';
+```
+
+![image-20221107194348179](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221107194348179.png)
+
+联合索引总长度为54，这里仅使用了49，说明status字段的索引失效
+
+- 联合查询中，当范围查询使用`>=`，`<=`，联合索引全部生效
+
+```mysql
+-- 联合索引全部生效
+EXPLAIN SELECT * FROM tb_user WHERE profession = '软件工程' AND age >= 30 AND status = '0';
+```
+
+![image-20221107194707086](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221107194707086.png)
+
+联合查询使用的索引长度为49，联合索引全部生效
+
+**所以在业务允许的情况下，应当尽量使用`<=`，`>=`运算符，避免使用`<`，`>`运算符**
+
+#### 索引失效情况
+
+- **在索引列上进行运算操作，索引会失效**
+
+  ```mysql
+  -- 对phone字段进行等值匹配，索引生效，key_len = 46
+  EXPLAIN SELECT * FROM tb_user WHERE phone = '17799990015';
+  -- 对phone字段进行函数运算，索引失效，key_len = NULL
+  EXPLAIN SELECT * FROM tb_user WHERE substring(phone,10,2) = '15';
+  ```
+
+- **字符串类型字段不加引号，索引会失效**
+
+  ```mysql
+  -- status字段等值匹配添加单引号，索引生效，key_len = 54
+  EXPLAIN SELECT * FROM tb_user WHERE profession = '软件工程' AND age >= 30 AND status = '0';
+  -- status字段等值匹配未添加单引号，索引失效，key_len = 49
+  EXPLAIN SELECT * FROM tb_user WHERE profession = '软件工程' AND age >= 30 AND status = 0;
+  ```
+
+- **进行模糊查询时，头部模糊匹配，索引失效；尾部模糊匹配，索引不会失效**
+
+  ```mysql
+  -- 尾部模糊匹配，索引生效
+  EXPLAIN SELECT * FROM tb_user WHERE profession like '软件%';
+  -- 头部模糊匹配，索引失效
+  EXPLAIN SELECT * FROM tb_user WHERE profession like '%工程';
+  ```
+
+- **使用OR关键字，若OR左侧与右侧字段有一边没有建立索引，那么涉及到的索引均不会生效**
+
+  ```mysql
+  -- 尽管id字段存在索引，但age字段没有，故索引不会使用，key_len = 0
+  EXPLAIN SELECT * FROM tb_user WHERE id = 10 OR age = 23;
+  EXPLAIN SELECT * FROM tb_user WHERE age = 23 OR id = 10;
+  -- 为age字段建立索引，两侧索引均使用，key_len = 4,2
+  EXPLAIN SELECT * FROM tb_user WHERE id = 10 OR age = 23;
+  ```
+
+- **如果MySQL评估使用索引比全表更慢，则不使用索引**
+
+  ```mysql
+  -- 手机号分布范围为尾号0000~0023
+  -- 使用索引
+  EXPLAIN SELECT * FROM tb_user WHERE phone >= '17799990015';
+  -- 因为手机尾号均大于0000，MySQL评估全表扫描更快，故未使用索引
+  EXPLAIN SELECT * FROM tb_user WHERE phone >= '17799990000';
+  ```
+
+  `IS NULL`与`IS NOT NULL`同理，是否使用索引取决于表中数据分布，由MySQL评估全表扫描和索引哪个快
+
+#### SQL提示
+
+> 1. 执行SQL：`EXPLAIN SELECT * FROM tb_user WHERE profession = '软件工程';`
+>
+>    ![image-20221107202508527](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221107202508527.png)
+>
+>    查询结果显示SQL查询使用了联合索引
+>
+> 2. 执行SQL：`CREATE INDEX idx_user_pro on tb_user(profession);`
+>
+>    为profession字段创建单列索引
+>
+> 3. 再次执行SQL：`EXPLAIN SELECT * FROM tb_user WHERE profession = '软件工程';`
+>
+>    ![](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221107202508527.png)
+>
+>    查询结果仍显示使用联合索引
+
+**SQL提示：优化数据库的一个重要手段，简单来说就是在SQL语句中加入一些人为的提示来达到优化操作的目的**
+
+- `USE INDEX(索引名)`：建议MySQL使用哪一个索引完成此次索引（仅建议，是否使用需看MySQL评估）
+
+  ```mysql
+  EXPLAIN SELECT * FROM tb_user USE INDEX(idx_user_pro) WHERE profession = '软件工程';
+  ```
+
+- `IGNORE INDEX(索引名)`：忽略指定的索引
+
+  ```mysql
+  EXPLAIN SELECT * FROM tb_user IGNORE INDEX(idx_user_pro_age_sta) WHERE profession = '软件工程';
+  ```
+
+- `FORCE INDEX(索引名)`：强制使用指定的索引
+
+  ```mysql
+  EXPLAIN SELECT * FROM tb_user FORCE INDEX(idx_user_pro) WHERE profession = '软件工程';
+  ```
+
+#### 覆盖索引
+
+**尽量使用覆盖索引，减少`SELECT *`**
+
+**覆盖索引:** 查询时使用了索引，并且需要返回的数据在该索引结构中已经能够找到，而无需再进行回表查询。（查询所需的数据列从索引中就可以得到）
+
+> `tb_user`表中有一个联合索引`idx_user_pro_age_sta`，该索引关联了profession、age、status三个字段，该索引同时也是二级索引，索引B+Tree的叶子结点下挂着的是这一条记录的主键id。
+>
+> 当查询时返回的数据在id、profession、age与status中时，直接从二级索引中直接返回数据
+>
+> 当查询的数据在上述范围之外，就需要通过主键id去扫描聚集索引，再获取额外的数据，即回表操作。
+>
+> 若一直使用`SELECT *`查询返回所有字段，很容易造成回表查询。
+>
+> 使用`EXPLAIN`关键字获取SQL执行信息，从Extra列可以得到是否使用覆盖索引
+>
+> |          Extra           |                             含义                             |
+> | :----------------------: | :----------------------------------------------------------: |
+> | Using where；Using Index | 查找使用了索引，但是需要的数据都在索引列中能找到，所以不需要回表查询数据 |
+> |  Using index condition   |             查询时使用了索引，但需要回表查询数据             |
+>
+> 如图使用聚集索引：
+>
+> ![image-20221107204717819](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221107204717819.png)
+
+#### 前缀索引
+
+> 当字段数据类型为字符串（varchar，text，longtext）时，有时候需要索引很长的字符串，这会让索引变得很大，查询时浪费大量磁盘IO，影响查询效率。
+>
+> 此时可以只将字符串的一部分前缀建立索引，大大节约索引空间，提高索引效率
+
+**语法：**
+
+```mysql
+-- table_name 表名
+-- column 列名
+-- n 索引使用的前缀长
+CREATE INDEX idx_xxxx ON table_name(colunm(n));
+```
+
+**前缀长度：**
+
+前缀长度可以根据索引的选择性来决定
+
+索引的选择性：不重复的索引值（基数）和数据表的记录总数的比值，索引的选择性越高则查询效率越高。如唯一索引的选择性是1，具有最好的索引选择性，性能最好。
+
+```mysql
+-- 计算email字段的索引选择性
+SELECT COUNT(DISTINCT email) / COUNT(*) FROM tb_user;
+-- 计算email字段的前缀索引的索引选择性
+SELECT COUNT(DISTINCT SUBSTRING(email,1,8)) / COUNT(*) FROM tb_user;
+```
+
+**前缀索引的查询流程：**
 
 
 
+![image-20221107210442912](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221107210442912.png)
+
+执行查询是会截取email前五个字符匹配，前五个字符匹配到后，回表查询匹配全部字符。
+
+注意B+Tree叶子结点是一个链表，若匹配到多个项，会依次回表查询并匹配全部字符。
+
+**案例：**
+
+为tb_user表的email字段，建立长度为5的前缀索引。
+
+```mysql
+CREATE INDEX idx_email_5 ON tb_user(email(5));
+```
+
+Sub_part显示前缀索引截取的长度
+
+![image-20221107205706892](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221107205706892.png)
+
+#### 单列/联合索引
+
+- **单列索引:** 一个索引仅包含单个列
+- **联合索引:** 一个索引包含了多个列
+
+在业务场景中，如果存在多个查询条件，考虑针对于查询字段建立索引时，建议建立联合索引，而非单列索引。
+
+#### 索引设计原则
+
+1. 针对数据量较大，且查询比较频繁的表建立索引。
+2. 针对常作为查询条件（WHERE）、排序（ORDER BY）、分组（GROUP BY）操作的字段建立索引。
+3. 尽量选择区分度高的列作为索引，尽量建立唯一索引，区分度越高，使用的效率越高。
+4. 如果是字符串类型的字段，且字段的长度较长，可以针对于字段的特点，建立前缀索引。
+5. 尽量使用联合索引，减少单列索引。查询时，联合索引很多时候可以覆盖索引，节省存储空间，避免回表查询，提高查询效率。
+6. 要控制索引的数量，索引并不是多多益善，索引越多，维护索引结构的代价也越大，会影响删改的效率
+7. 如果索引列不能存储NULL值，请在创建表时使用`NOT NULL`约束它。当优化器知道每列是否包含NULL值时，它可以更好的确定哪个索引能最有效地用于查询。
 
 ## SQL优化
 
