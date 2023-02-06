@@ -14,7 +14,7 @@
 |   Shift+F10    |                 运行                 |
 |     Ctrl+D     |             复制到下一行             |
 | Ctrl+Alt+Enter |               创建空行               |
-|                |                                      |
+|     ALT+←      |            返回上一级源码            |
 
 # 【String】
 
@@ -34,7 +34,7 @@
 
 ## 接口升级
 
-### JDK8
+**JDK8**
 
 ![image-20230203153422248](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230203153422248.png)
 
@@ -42,7 +42,7 @@
 
 ![image-20230203153727786](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230203153727786.png)
 
-### JDK9
+**JDK9**
 
 ![image-20230203153839108](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230203153839108.png)
 
@@ -361,7 +361,306 @@ DateFormat为抽象类，不能直接使用，需要常用的子类`java.text.Si
 
 ## JDK8时间相关类
 
-### 
+![image-20230205154010887](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230205154010887.png)
+
+**JDK8中的时间类均为不可变对象，当对一个时间对象进行修改时，均是产生了一个新的对象**
+
+### Date类
+
+#### ZoneId
+
+![image-20230205154229294](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230205154229294.png)
+
+```java
+// 1.获取所有的时区名称
+Set<String> zoneIds = ZoneId.getAvailableZoneIds();
+Iterator<String> iterator = zoneIds.iterator();
+while (iterator.hasNext()) {
+    System.out.println(iterator.next());
+}
+
+// 2.获取当前系统的默认时区
+ZoneId zoneId = ZoneId.systemDefault();
+System.out.println(zoneId);//Asia/Shanghai
+
+// 3.获取指定的时区
+ZoneId zoneId1 = ZoneId.of("Asia/Pontianak");
+System.out.println(zoneId1);// Asia/Pontianak
+```
+
+#### Instant
+
+![image-20230205154721530](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230205154721530.png)
+
+
+
+```java
+/**
+ * static Instant now() 获取当前时间的Instant对象(标准时间)
+ * static Instant ofXxxx(long epochMilli) 根据(秒/毫秒/纳秒)获取Instant对象
+ * ZonedDateTime atZone(ZoneIdzone) 指定时区
+ * boolean isxxx(Instant otherInstant) 判断系列的方法
+ * Instant minusXxx(long millisToSubtract) 减少时间系列的方法
+ * Instant plusXxx(long millisToSubtract) 增加时间系列的方法
+ */
+// 1.获取当前时间的Instant对象(标准时间)
+Instant now = Instant.now();
+System.out.println(now);
+
+// 2.根据(秒/毫秒/纳秒)获取Instant对象(参数为距时间原点过去的时间)
+Instant instant1 = Instant.ofEpochMilli(0L);
+System.out.println(instant1); // 1970-01-01T00:00:00.001Z
+
+Instant instant2 = Instant.ofEpochSecond(1L);
+System.out.println(instant2); // 1970-01-01T00:00:01Z
+
+Instant instant3 = Instant.ofEpochSecond(1L, 1000000000L);
+System.out.println(instant3); 1970-01-01T00:00:02Z
+
+// 3. 指定时区
+ZonedDateTime time = Instant.now().atZone(ZoneId.of("Asia/Shanghai"));
+System.out.println(time);
+
+// 4.isXxx 判断
+Instant instant4=Instant.ofEpochMilli(0L);
+Instant instant5 =Instant.ofEpochMilli(1000L);
+
+// 5.用于时间的判断
+// isBefore:判断调用者代表的时间是否在参数表示时间的前面
+boolean result1=instant4.isBefore(instant5);
+System.out.println(result1); // true
+
+// isAfter:判断调用者代表的时间是否在参数表示时间的后面
+boolean result2 = instant4.isAfter(instant5);
+System.out.println(result2); // false
+
+// 6.Instant minusXxx(long millisToSubtract) 减少时间系列的方法
+Instant instant6 =Instant.ofEpochMilli(3000L);
+System.out.println(instant6); // 1970-01-01T00:00:03Z
+
+Instant instant7 =instant6.minusSeconds(1);
+System.out.println(instant7); // 1970-01-01T00:00:02Z
+```
+
+#### ZoneDateTime
+
+> ZoneDateTime  带时区的时间
+
+![image-20230205155726327](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230205155726327.png)
+
+### 日期格式化类
+
+#### DateTimeFormatter
+
+> DateTimeFormatter   用于时间的格式化和解析
+
+![image-20230205160121389](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230205160121389.png)
+
+```java
+// 获取时间对象
+ZonedDateTime time = Instant.now().atZone(ZoneId.of("Asia/Shanghai"));
+// 解析/格式化器
+DateTimeFormatter dtf1=DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm;ss EE a");
+// 格式化
+System.out.println(dtf1.format(time));
+```
+
+### 日历类
+
+![image-20230205160420472](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230205160420472.png)
+
+![image-20230205160401290](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230205160401290.png)
+
+![image-20230205160558291](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230205160558291.png)
+
+### 工具类
+
+![image-20230205160716072](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230205160716072.png)
+
+#### Duration
+
+```java
+// 本地日期时间对象。
+LocalDateTime today = LocalDateTime.now();
+System.out.println(today);
+
+// 指定的的日期时间对象
+LocalDateTime birthDate = LocalDateTime.of(2000, 1, 1, 0, 0, 0);
+System.out.println(birthDate);
+
+// 第二个参数减第一个参数
+Duration duration = Duration.between(birthDate, today);
+System.out.println("相差的时间间隔对象:" + duration);
+
+System.out.println("============================================");
+System.out.println(duration.toDays());		// 两个时间差的天数
+System.out.println(duration.toHours());		// 两个时间差的小时数
+System.out.println(duration.toMinutes());	// 两个时间差的分钟数
+System.out.println(duration.toMillis());	// 两个时间差的毫秒数
+System.out.println(duration.toNanos());		// 两个时间差的纳秒数
+```
+
+#### Period
+
+```java
+// 当前本地 年月日
+LocalDate today = LocalDate.now();
+System.out.println(today);
+
+// 指定的 年月日
+LocalDate birthDate = LocalDate.of(2000, 1, 1);
+System.out.println(birthDate);
+
+// 第二个参数减第一个参数
+Period period = Period.between(birthDate, today);
+
+System.out.println("相差的时间间隔对象:" + period);
+System.out.println(period.getYears());		// 返回相差的年数
+System.out.println(period.getMonths());		// 返回相差的月数(相差1年3个月，得到的是相差3个月)
+System.out.println(period.getDays());		// 返回相差的天数
+System.out.println(period.toTotalMonths());	// 返回相差的总月数
+```
+
+#### ChronoUnit
+
+```java
+// 当前时间
+LocalDateTime today = LocalDateTime.now();
+System.out.println(today);
+// 指定时间
+LocalDateTime birthDate = LocalDateTime.of(2000, 1, 1,0, 0, 0);
+System.out.println(birthDate);
+
+System.out.println("相差的年数:" + ChronoUnit.YEARS.between(birthDate, today));
+System.out.println("相差的月数:" + ChronoUnit.MONTHS.between(birthDate, today));
+System.out.println("相差的周数:" + ChronoUnit.WEEKS.between(birthDate, today));
+System.out.println("相差的天数:" + ChronoUnit.DAYS.between(birthDate, today));
+System.out.println("相差的时数:" + ChronoUnit.HOURS.between(birthDate, today));
+System.out.println("相差的分数:" + ChronoUnit.MINUTES.between(birthDate, today));
+System.out.println("相差的秒数:" + ChronoUnit.SECONDS.between(birthDate, today));
+System.out.println("相差的毫秒数:" + ChronoUnit.MILLIS.between(birthDate, today));
+System.out.println("相差的微秒数:" + ChronoUnit.MICROS.between(birthDate, today));
+System.out.println("相差的纳秒数:" + ChronoUnit.NANOS.between(birthDate, today));
+System.out.println("相差的半天数:" + ChronoUnit.HALF_DAYS.between(birthDate, today));
+System.out.println("相差的十年数:" + ChronoUnit.DECADES.between(birthDate, today));
+System.out.println("相差的世纪(百年)数:" + ChronoUnit.CENTURIES.between(birthDate, today));
+System.out.println("相差的千年数:" + ChronoUnit.MILLENNIA.between(birthDate, today));
+System.out.println("相差的纪元数:" + ChronoUnit.ERAS.between(birthDate, today));
+```
+
+## 包装类
+
+### 概述
+
+> 包装类：基本数据类型的引用类型
+>
+> - 包装类都是final修饰无法继承
+> - 数字类型的父类都是Number
+> - 当包装类作为类属性时,其默认值都为Null
+
+Java提供了两个类型系统，基本类型与引用类型。
+
+使用基本类型效率高，然而很多情况，会创建对象使用，因为对象可以做更多的功能
+
+| 基本类型 | 对应的包装类（位于java.lang包中） |
+| :------: | :-------------------------------: |
+|   byte   |               Byte                |
+|  short   |               Short               |
+|   int    |              Integer              |
+|   long   |               Long                |
+|  float   |               Float               |
+|  double  |              Double               |
+|   char   |             Character             |
+| boolean  |              Boolean              |
+
+### 获取包装类对象
+
+- 构造方法：`包装类(参数)`
+
+  - 通过构造方法创建的对象，每一次创建的都是新的对象
+
+- 静态方法：`包装类.valueOf(参数)`
+
+  - 通过静态方法构造的方法，如`Integer.valueOf()`方法基于减少对象创建次数和节省内存的考虑，缓存了[-128,127]（常量池）之间的数字。
+
+    此数字范围内传参则直接返回缓存中的对象。在此之外，通过构造方法创建。
+
+### 常量池
+
+Java虚拟机会默认将一些简单的字面量对象放到常量池中,来减少频繁的内存操作,是一种优化机制
+
+- `String`类型的所有字面量都会进入常量池
+- `Byte`、`Short`、`Integer`、`Long`四种类型字面量在大于等于-128且小于等于127时对象将进入常量池
+- `Character`类型不能为负数,字面量大于等于0 且 小于等于127时对象将进入常量池
+- `Boolean`类型两个字面量都会进入常量池
+- `Float`和`Double`类型不会进入常量池
+
+**常量池会在第一次创建范围内的对象时被创建并缓存**
+
+### 自动装箱/拆箱
+
+由于经常要做基本类型与包装类之间的转换，从Java 5（JDK 1.5）开始，基本类型与包装类的装箱、拆箱动作可以自动完成。例如：
+
+```java
+// 自动装箱，相当于Integer i = Integer.valueOf(4);
+Integer i = 4;
+// 等号右边：将i对象转成基本数值(自动拆箱) i.intValue() + 5;
+i = i + 5;
+// 加法运算完成后，再次装箱，把基本数值转成对象。
+```
+
+**自动装箱的时机：**
+
+1. 将包装类型变量直接赋值给对应基础类型时,系统会自动进行拆箱操作
+2. 当要访问这个对象的真实数据值时会进行自动拆箱,例如要输出对象的值
+3. 当要对包装类的实际值进行数学运算时,会自动拆箱,例如比较大小
+
+需要注意的是,当使用判断是否相等时,符号任意一边是基础数据类型另外一边都会自动拆箱(不会出问题),
+
+但如果**两边都是包装类型，会比较对象引用是否相同** (可能产生问题)
+
+```
+Integer i1 = new Integer(10);
+Integer i2 = new Integer(10);
+System.out.println(i1 == i2); //结果为false
+```
+
+### 字符串与数据类型相互转换
+
+**String与包装类的相互转换**
+
+```java
+// 使用包装类提供的valueof()方法来将字符串转为对象的包装类
+System.out.println(Float.valueOf("1.1ff"));
+System.out.println(Boolean.valueOf("true"));
+
+// String提供了静态方法valueOf(),将其他任意类型转换为字符串类型
+System.out.println(String.valueOf('c'));
+System.out.println(String.valueOf(true));
+```
+
+**基本数据类型转换为String类型（Integer为例）：**
+
+- 方式一：直接在数字后加一个空字符串
+- 方式二：通过String类静态方法valueOf()
+
+**String类型转换为基本数据类型（Integer为例）：**
+
+- 方式一：先将字符串数字转成Integer，再调用valueOf()方法
+
+- 方式二：通过Integer静态方法parseInt()进行转换
+
+  除Character类之外，其他所有包装类都具有parseXxx静态方法可以将字符串参数转换为对应的基本类型：
+
+  - `public static byte parseByte(String s)`：将字符串参数转换为对应的byte基本类型。
+  - `public static short parseShort(String s)`：将字符串参数转换为对应的short基本类型。
+  - `public static int parseInt(String s)`：将字符串参数转换为对应的int基本类型。
+  - `public static long parseLong(String s)`：将字符串参数转换为对应的long基本类型。
+  - `public static float parseFloat(String s)`：将字符串参数转换为对应的float基本类型。
+  - `public static double parseDouble(String s)`：将字符串参数转换为对应的double基本类型。
+  - `public static boolean parseBoolean(String s)`：将字符串参数转换为对应的boolean基本类型。
+
+
 
 # 【正则表达式】
 
@@ -546,11 +845,627 @@ boolean b = Pattern.matches ("a*b","aaaaab");
 "/(.*?at)/" => The fat cat sat on the mat
 ```
 
+# 【函数式接口】
+
+函数式接口(Functional Interface)就是一个有且仅有一个抽象方法，但是可以有多个非抽象方法的接口。
+
+函数式接口可以被隐式转换为 lambda 表达式。
+
+- 只包含一个抽象方法的接口，称为函数式接口
+- 可以通过Lambda表达式创建该接口的对象（若Lambda表达式抛出一个收检异常—非运行时异常—那么该异常需要在目标接口的抽象方法上进行声明）
+- 可以在接口上使用`@FunctionalInterface`注解，检查该接口是否为函数式接口，同时也会在javadoc中包含对它是函数式接口的声明
+- `java.util.function`包下定义了Java 8的丰富的函数式接口
+
+|        函数式接口        | 参数类型 | 返回类型 |                             用途                             |
+| :----------------------: | :------: | :------: | :----------------------------------------------------------: |
+|  Consumer<T> 消费型接口  |    T     |   void   |    对类型为T的对象应用操作，包含方法：`void accept(T t)`     |
+|  Supplier<T> 供给型接口  |    无    |    T     |            返回类型为T的对象，包含方法:`T get()`             |
+| Function<T,R> 函数型接口 |    T     |    R     | 对类型为T的对象应用操作，并返回结果。结果是R类型的对象。包含方法:`R apply(T t)` |
+| Predicate<T> 断定型接口  |    T     | boolean  | 确定类型为T的对象是否满足其约束，并返回boolean值。包含方法:      `boolean test(T t)` |
+
+# 【Lambda表达式】
+
+Lambda 表达式，也可称为闭包，它是推动 Java 8 发布的最重要新特性。
+
+**Lambda的本质：** 作为函数式接口的实例。
+
+如果一个接口中，只声明了一个抽象方法，则此接口就被称为函数式接口
+
+## **举例**
+
+- 例一：
+
+```java
+@Test
+public void test1() {
+    // 正常写法(匿名内部类，即Runnable)
+    Runnable r1 = new Runnable() {
+        @Override
+        public void run() {
+            System.out.println("Hello World!");
+        }
+    };
+    r1.run();
+    
+    // Lambda表达式写法：
+    Runnable r2 = () -> System.out.println("Hello World!");
+    r2.run();
+}
+```
+
+​	运行结果：
+
+```shell
+Hello World!
+Hello World!
+```
+
+- 例二：
+
+```java
+public void test2() {
+    // 写法一：正常写法
+    Comparator<Integer> com1 = new Comparator<Integer>() {
+        @Override
+        public int compare(Integer o1, Integer o2) {
+            return Integer.compare(o1,o2);
+        }
+    };
+    System.out.println(com1.compare(11,22));
+    System.out.println("*********");
+    
+    // 写法二：Lamabda表达式写法
+    Comparator<Integer> com2 = (o1,o2) -> Integer.compare(o1,o2);
+    System.out.println(com2.compare(33,22));
+    System.out.println("*********");
+    
+    // 写法三：方法引用
+    Comparator<Integer> com3 = Integer :: compare;
+    System.out.println(com3.compare(33,44));
+}
+```
+
+​	运行结果：
+
+```shell
+-1
+*********
+1
+*********
+-1
+```
+
+## 语法
+
+**lambda 表达式的语法格式如下：**
+
+```java
+(parameters) -> expression
+或
+(parameters) ->{ statements; }
+
+举例：(o1,o2) -> Integer.compare(o1,o2)
+格式：
+     -> ：Lambda操作符或箭头操作符
+     ->左边：Lambda形参列表（其实就是接口中抽象方法的形参列表）
+     ->右边：Lambda体（其实就是重写的抽象方法的方法体）
+```
+
+**Lambda表达式的重要特征:**
+
+- 可选类型声明：不需要声明参数类型，编译器可以统一识别参数值。
+- 可选的参数圆括号：一个参数无需定义圆括号，但多个参数需要定义圆括号。
+- 可选的大括号**：**如果主体包含了一个语句，就不需要使用大括号。
+- 可选的返回关键字**：**如果主体只有一个表达式返回值则编译器会自动返回值，大括号需要指定明表达式返回了一个数值。
+
+****
+
+**Lambda表达式的本质：** 作为接口的实例
+
+****
+
+**具体使用（六种）：**
+
+- **语法格式一：** 无参，无返回值
+
+```java
+// 正常写法
+Runnable r1 = new Runnable() {
+    @Override
+    public void run() {
+        System.out.println("Hello World!");
+    }
+};
+r1.run();
+
+// Lambda表达式写法：
+Runnable r2 = () -> System.out.println("Hello World!");
+r2.run();
+```
+
+- **语法格式二：** 有参，无返回值
+
+```java
+// 正常写法:
+Consumer<String> con1 = new Consumer<String>() {
+    @Override
+    public void accept(String s) {
+        System.out.println(s);
+    }
+};
+con1.accept("Hello World!");
+
+// Lambda表达式写法
+Consumer<String> con2 = (String s) -> { System.out.println(s); };
+con2.accept("Hello World!");
+```
+
+- **语法格式三： **数据类型可省略（“类型推断”）
+
+```java
+// 不省略写法
+Consumer<String> con2 = (String s) -> { System.out.println(s); };
+con2.accept("Hello World!");
+
+// 省略数据类型
+Consumer<String> con2 = (s) -> { System.out.println(s); };
+con2.accept("Hello World!");
+```
+
+- **语法格式四：** 单参数时可以省略小括号
+
+```java
+// 有括号写法
+Consumer<String> con2 = (String s) -> { System.out.println(s); };
+con2.accept("Hello World!");
+
+// 无括号写法
+Consumer<String> con2 = s -> { System.out.println(s); };
+con2.accept("Hello World!");
+```
+
+- **语法格式五：** 多参数多执行语句，且有返回值
+
+```java
+// 
+Comparator<Integer> com2 = (o1,o2) -> { 
+    System.out.println(o1);
+    System.out.println(o2);
+    return o1.compareTo(o2);
+};
+```
+
+- **语法格式六：** lambda体只有一条语句时，return与大括号若有，都可以省略
+
+```java
+Comparator<Integer> com2 = (o1,o2) -> o1.compareTo(o2);
+```
+
+# 【方法引用】
+
+方法引用是隐式借用已经存在的方法作为现成的执行逻辑，而不必在`lambda`表达式中显式调用该方法，或者重写这一部分代码。
+
+简单来说，方法引用是对`lambda`表达式的一种更加简便的写法。
+
+- 当要传递给Lambda体的操作，已经有实现的方法了，就可以使用方法引用。
+
+  **要求：** 接口中抽象方法的形参列表和返回值类型，与方法引用的形参列表和返回值类型相同！
+
+- 方法引用就是Lambda表达式，也就是函数式接口的一个实例，通过方法的名字来指向一个方法
+
+- 格式：使用操作符`::`将类（或对象）与方法名分隔开来。
+
+- 使用场景：
+
+  - `对象::实例方法名`
+
+    ```java
+    // Consumer接口中的void accept(T t)
+    // PrintStream中的void println(T t)与accept方法结构一样，可视为实现了该抽象方法
+    // 使用println(T t)方法替换accpet(T t)方法
+    
+    // lambda表达式
+    Consumer<String> con1 == str -> System.out.println(str);
+    // 方法引用
+    // out是System的一个静态成员字段，类型为Printtream
+    PrintStream ps = System.out
+    Consumer<String> con2 = ps::println
+    ```
+  
+  - `类::静态方法名`
+  
+    ```java
+    // Comparator接口中的int compare(T t1, T t2)
+    // Integer中的int compare(T t1, T t2)
+    
+    // lambda表达式
+    Comparator<Integer> com1 = (t1,t2) -> Integer.compare(t1, t2);
+    // 方法引用
+    Comparator<Integer> com2 = Integer::compare;
+    ```
+  
+    ```java
+    // Function接口中的R apply(T t)
+    // Math中的Long round(Double d)
+    // 上述返回值和形参列表相同
+    
+    // lambda表达式
+    Function<Double,Long> func1 = d -> Math.round(d);
+    // 方法引用
+    Function<Double,Long> func2 = Math::round;
+    ```
+  
+  - `类::实例方法名`
+  
+    接口中的抽象方法有两个参数，类的实例方法仅含有一个参数
+  
+    **可以视为类作为第一个参数，为方法的调用者，实例方法中的参数作为第二个参数，来实现抽象方法，也可以使用方法引用**
+  
+    ```java
+    // Comparator接口中的int compare(T t1, T t2)
+    // String中的int t1.compare(t2)
+    
+    // lambda表达式
+    Comparator<String> com1 = (s1,s2) -> s1.compareTo(s2)
+    // 方法引用
+    Comparator<String> com2 = s1::compareTo;
+    ```
+  
+  - `类::new` 
+  
+    - 构造器引用
+  
+    ```java
+    // Supplier中的T get()，有返回值无参数
+    // Employee空参构造器: Employee()，无参数返回Employee对象
+    
+    // lambda表达式
+    Supplier<Employee> sup1 = () -> new Employee();
+    // 方法引用
+    Supplier<Employee> sup2 = Employee::new;
+    ```
+  
+    ```java
+    // Function中的R apply(T t)
+    // Employee的有参构造器 Employee(int id)
+    
+    // lambda表达式
+    Function<Employee> func1 = (id) -> new Employee(id);
+    // 方法引用
+    Function<Employee> func2 = Employee::new;
+    ```
+  
+    - 数组引用
+  
+    ```java
+    // Function中的R apply(T t)
+    // 将数组看做一个特殊的类，创建数组即使用其构造方法
+    
+    // lambda表达式
+    Function<Integer,String[]> func1 = length -> new String[length];
+    // 数组引用
+    Function<Integer,String[]> func2 = String[]::new;
+    ```
+
 # 【集合】
 
-## ArrayList
+## 集合体系结构
 
-![image-20230203152810424](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230203152810424.png)
+- `Collection`：单列集合，一次添加一个数据
+  - `List`：接口，添加的元素有序、可重复、有索引
+    - ArrayList
+    - LinkedList
+    - Vector
+  - `Set`：接口，添加的元素无序、不重复、无索引
+    - HashSet
+      - LinkedHashSet
+    - TreeSet
+- `Map`：双列集合，一次添加一对数据
+
+## Collection
+
+Collection是单列集合的顶层父接口，它的功能是全部单列集合都可以继承使用的
+
+### 成员方法
+
+![image-20230206101037580](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230206101037580.png)
 
 
+
+```java
+/**
+ * public boolean add(E e)             添加
+ * public void clear()                 清空
+ * public boolean remove(E e)          删除
+ * public boolean contains(Object obj) 判断是否包含
+ * public boolean isEmpty()            判断是否为空
+ * public int size()                   集合长度
+ */
+
+/* 
+	注意点：Collection是一个接口,不能直接创建他的对象。
+	实现类以ArrayList为例子
+*/	
+
+Collection<String> coll = new ArrayList<>();
+
+// 1.添加元素
+// 细节1：List系列集合中添加数据，那么方法永远返回true，因为List系列的是允许元素重复的。
+// 细节2：Set系列集合中添加数据,如果当前要添加元素不存在，方法返回true;如果当前要添加的元素已经存在，方法返回false
+// 		 因为Set系列的集合不允许重复。
+coll.add("aaa");
+coll.add("bbb");
+coll.add("ccc");
+System.out.println(coll);
+
+// 2.清空
+coll.clear();
+
+// 3.删除
+// 细节1：因为Collection里面定义的是共性的方法，所以此时不能通过索引进行删除。只能通过元素的对象进行删除。
+// 细节2：方法会有一个布尔类型的返回值，删除成功返回true，删除失败返回false
+// 如果要删除的元素不存在，就会删除失败。
+System.out.println(coll.remove("aaa"));
+System.out.println(coll);
+
+// 4.判断元素是否包含
+// 细节：底层是依赖equals方法进行判断是否存在的,所以需要根据需要重写equals方法
+// 如果存的是自定义对象，没有重写equals方法，那么默认使用Object类中的equals方法进行判断，而Object类中equals方法，依赖地址值进行判断。
+// 需求：如果同姓名和同年龄，就认为是同一个学生。
+// 所以，需要在自定义的Javabean类中，重写equals方法。
+boolean result1 = coll.contains("bbb");
+System.out.println(result1);
+
+// 5.判断集合是否为空
+boolean result2 = coll.isEmpty();
+System.out.println(result2); // false
+
+// 6.获取集合的长度
+coll.add("ddd");
+int size = coll.size();
+System.out.println(size);
+```
+
+### 通用遍历方式
+
+set集合没有所以，无法通过普通的for循环遍历
+
+**通用遍历方式：**
+
+- 迭代器遍历
+
+- 增强for遍历
+- lambda表达式遍历
+
+#### 迭代器遍历
+
+![image-20230206103152271](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230206103152271.png)
+
+```java
+// 1.创建集合并添加元素
+Collection<String> coll = new ArrayList<>();
+coll.add("aaa");
+coll.add("bbb");
+coll.add("ccc");
+coll.add("ddd");
+// 2.获取迭代器对象
+// 迭代器好比一个指针，默认指向集合的0索引处
+Iterator<String> it = coll.iterator();
+// 3.利用循环不断获取集合中的元素
+while (it.hasNext()) {
+    // next()：获取元素并移动指针
+    System.out.println(it.next());
+}
+```
+
+**细节：**
+
+- 迭代器当前位置没有元素，会报错`NoSuchElementException`
+
+- 迭代器遍历完毕，指针不会复位，再次遍历需重新获取`Iterator`对象
+
+- 循环中只能用一次`next()`方法
+
+- 迭代器遍历时，不能用集合的方法进行添加和删除
+
+  迭代器提供了`remove()`方法，可以删除当前元素
+
+#### 增强for遍历
+
+- 增强for的底层就是迭代器，可以简化迭代器的代码书写
+- 只有单列集合和数组才能使用增强for进行遍历
+
+```java
+for(元素的数据类型 变量名 : 数组或集合) {
+    
+}
+```
+
+```java
+// 1.创建集合并添加元素
+Collection<String> coll = new ArrayList<>();
+coll.add("aaa");
+coll.add("bbb");
+coll.add("ccc");
+
+// 2.增强for遍历
+// idea快速生成方式: coll.for
+for (String s : coll) {
+    System.out.println(s);
+}
+```
+
+**细节：**
+
+- 修改增强for中的变量，不会改变集合中原本的数据
+
+#### forEach遍历
+
+![image-20230206105746430](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230206105746430.png)
+
+```java
+// 1.创建集合并添加元素
+Collection<String> coll = new ArrayList<>();
+coll.add("张三");
+coll.add("李四");
+coll.add("王五");
+
+// 2.forEach遍历
+// 方法底层会遍历集合，依次得到每一个元素
+// 然后把每一个元素作为参数传递给下面的accept方法
+
+// 匿名内部类写法
+coll.forEach(new Consumer<String>() {
+    @Override
+    public void accept(String s) {
+        System.out.println(s);
+    }
+});
+
+// Lambda表达式写法
+coll.forEach(s -> System.out.println(s));
+
+// 方法引用写法
+coll.forEach(System.out::println);
+```
+
+## List
+
+### 成员方法
+
+![image-20230206110642650](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230206110642650.png)
+
+```java
+/*
+	List系列集合独有的方法：
+		void add(int index,E element)       在此集合中的指定位置插入指定的元素
+		E remove(int index)                 删除指定索引处的元素，返回被删除的元素
+		E set(int index,E element)          修改指定索引处的元素，返回被修改的元素
+		E get(int index)                    返回指定索引处的元素
+*/
+
+// 1.创建集合
+List<String> list = new ArrayList<>();
+
+// 2.添加元素
+list.add("aaa");
+list.add("bbb");
+list.add("ccc");
+
+// 添加：void add(int index,E element)    
+// 在此集合中的指定位置插入指定的元素
+// 细节：原来索引上的元素会依次往后移
+list.add(1,"QQQ");
+
+// 删除：E remove(int index)                 
+// 删除指定索引处的元素，返回被删除的元素
+String remove = list.remove(0);
+System.out.println(remove); // aaa
+
+// 修改：E set(int index,E element)          
+// 修改指定索引处的元素，返回被修改的元素
+String result = list.set(0, "QQQ");
+System.out.println(result);
+
+// 获取：E get(int index)                    
+// 返回指定索引处的元素
+String s = list.get(0);
+System.out.println(s);
+
+// 3.打印集合
+System.out.println(list);
+```
+
+**细节：**
+
+- 删除元素时：`remove()`有两个方法，
+
+  - 通过索引删除元素`remove(Int index)`
+  - 通过元素本身来删除元素`remove(Object o)`
+
+  如下所示，当remove中传参1时，是删除1这个元素，还是删除1索引下的元素？
+
+  ```java
+  ArrayList<Object> list = new ArrayList<>();
+  list.add(0);
+  list.add(2);
+  list.add(1);
+  
+  list.remove(1);
+  ```
+
+  **当方法发生重载时，会自动调用实参和形参类型一致的方法，所以：**
+
+  - 删除1索引下的元素：使用`Int index = 1`参数
+  - 删除1这个元素：使用`Integer object = 1`参数
+
+### 遍历方式
+
+List系列集合的五种遍历方式及使用场景：
+
+- 迭代器：遍历过程中需要删除元素
+- 增强for：仅遍历
+- Lambda表达式：仅遍历
+- 普通for循环：操作索引
+- 列表迭代器：遍历过程中需要添加元素
+
+```java
+// 创建集合并添加元素
+List<String> list = new ArrayList<>();
+list.add("aaa");
+list.add("bbb");
+list.add("ccc");
+
+// 1.迭代器
+Iterator<String> it = list.iterator();
+while(it.hasNext()){
+    String str = it.next();
+    System.out.println(str);
+}
+
+//2 .增强for
+for (String s : list) {
+    System.out.println(s);
+}
+
+// 3.Lambda表达式
+list.forEach(s->System.out.println(s) );
+
+// 4.普通for循环
+for (int i = 0; i < list.size(); i++) {
+    String s = list.get(i);
+    System.out.println(s);
+}
+
+// 5.列表迭代器，迭代器的子接口
+// 获取一个列表迭代器的对象，里面的指针默认也是指向0索引的
+// 额外添加了一个方法：在遍历的过程中，可以添加元素
+ListIterator<String> it = list.listIterator();
+while(it.hasNext()){
+    String str = it.next();
+    if("bbb".equals(str)){
+        // 添加元素
+        it.add("qqq");
+    }
+}
+System.out.println(list);
+```
+
+**列表迭代器`ListIiterator`：**
+
+```java
+boolean hasNext();     //检查是否有下一个元素
+E next();              //返回下一个元素
+boolean hasPrevious(); //check是否有previous(前一个)element(元素)
+E previous();          //返回previous element
+int nextIndex();       //返回下一element的Index
+int previousIndex();   //返回当前元素的Index
+void remove();         //移除一个elment
+void set(E e);         //set()方法替换访问过的最后一个元素 注意用set设置的是List列表的原始值
+void add(E e);         //添加一个element
+```
+
+### 数据结构
+
+## LinkedList
 
