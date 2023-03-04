@@ -15,6 +15,10 @@
 |     Ctrl+D     |             复制到下一行             |
 | Ctrl+Alt+Enter |               创建空行               |
 |     ALT+←      |            返回上一级源码            |
+|    Ctrl+F12    |           查看源码方法列表           |
+|                |                                      |
+|                |                                      |
+|                |                                      |
 
 # 【String】
 
@@ -660,7 +664,105 @@ System.out.println(String.valueOf(true));
   - `public static double parseDouble(String s)`：将字符串参数转换为对应的double基本类型。
   - `public static boolean parseBoolean(String s)`：将字符串参数转换为对应的boolean基本类型。
 
+# 【泛型】
 
+## 简介
+
+**泛型：** JDK5引入的特性，可以在编译阶段约束操作的数据类型，并进行检查
+
+**泛型的格式：** <数据类型>
+
+**Java中泛型标记符：**
+
+- `E` - Element (在集合中使用，因为集合中存放的是元素)
+- `T` - Type（Java 类）
+- `K` - Key（键）
+- `V` - Value（值）
+- `N` - Number（数值类型）
+- `?` - 表示不确定的 java 类型
+
+**泛型的好处：**
+
+- 统一数据类型
+- 把运行时期遇到的问题提前到了编译时期，从而避免了强制类型转换可能出现的异常，因为这些在编译阶段就能确定下来
+
+**泛型擦除：** `.java`文件中存在泛型，编译时会进行泛型检查，生成的`.class`文件中泛型被转换成了相应的数据类型
+
+**细节：**
+
+- 泛型只支持引用数据类型
+- 指定泛型具体类型后，可以传入该类类型以及其子类类型
+- 不写泛型，泛型默认是Object，即`<> = <Object>`
+
+## 泛型类
+
+```java
+// 类上定义的泛型可以在所有方法上使用
+修饰符 class 类名<类型> {
+    
+}
+```
+
+```java
+// E相当于一个变量，用于记录数据的类型
+public class ArrayList<E> {    
+    void add(E e) {
+        ...
+    }
+}
+// 相当于将String赋值给E，从而确定list对象的泛型E的数据类型是String
+/* ArrayList：
+    add(E e) -> add(String e) */
+ArrayList<String> list = new ArrayList<>();
+```
+
+## 泛型方法
+
+```java
+// 定义在方法上的泛型只能在方法体内使用
+修饰符 <类型> 返回值类型 方法名(类型 变量名){
+    
+}
+```
+
+```java
+public <T> void show (T t){
+    T t1 = t;
+    System.out.println(t)
+}
+// 调用show方法
+show(String t);
+// 【T t1 = t】 -> 【String t1 = t】
+```
+
+## 泛型接口
+
+```java
+修饰符 interface 接口名<类型> {
+    ...
+}
+
+public interface List<E> {
+    void add(E e);
+}
+
+/* 1.实现类给出具体类型 */	
+public class MyList1 implements List<String> {
+	void add(String e)  
+}
+
+/* 2.实现类延续泛型，创建实现类对象时确定具体类型*/
+public class MyList2 implements List<E>{
+    void add(E e);
+} 
+MyList2 list = new MyList2<String>();
+// add(E e) -> add(String e)
+```
+
+## 通配符
+
+- `<? extends E>`：表示可以传递E或E的所有子类型
+- `<? super E>`：表示可以传递E或E的所有父类型
 
 # 【正则表达式】
 
@@ -1329,7 +1431,13 @@ coll.forEach(s -> System.out.println(s));
 coll.forEach(System.out::println);
 ```
 
-## List
+## List集合
+
+`List`：接口，添加的元素有序、可重复、有索引
+
+- ArrayList
+- LinkedList
+- Vector
 
 ### 成员方法
 
@@ -1465,7 +1573,172 @@ void set(E e);         //set()方法替换访问过的最后一个元素 注意�
 void add(E e);         //添加一个element
 ```
 
-### 数据结构
+### ArrayList
 
-## LinkedList
+`Collection`：单列集合，一次添加一个数据
+
+- `List`：接口，添加的元素有序、可重复、有索引
+  - `ArrayList`
+  - LinkedList
+  - Vector
+
+**ArrayList** 拥有上层的所有方法
+
+**底层原理：**
+
+- 利用空参创建的集合，在底层创建一个默认长度为0的数组
+
+  ```java
+  // 数组名称：elementData
+  // 数组指针：size，表示当前元素个数、下一个元素被存入的下标
+  public ArrayList() {
+      // DEFAULTCAPACITY_EMPTY_ELEMENTDATA：数组长度为0的数组
+      this.elementData = DEFAULTCAPACITY_EMPTY_ELEMENTDATA;
+  }
+  ```
+
+- 添加元素时，如果数组已满，会调用`grow()`方法：
+
+  ```java
+  // minCapacity：数组最小容量
+  private Object[] grow(int minCapacity) {
+      int oldCapacity = elementData.length; // 旧数组容量
+      // 判断数组已经存在(而不是默认的0长度数组)
+      if (oldCapacity > 0 || elementData != DEFAULTCAPACITY_EMPTY_ELEMENTDATA) {
+          // ArraysSupport.newLength() 返回需要的数组长度：Math.max(minGrowth, prefGrowth) + oldLength
+          int newCapacity = ArraysSupport.newLength(oldCapacity, // 旧容量 oldLength
+                  minCapacity - oldCapacity, // 最小需要扩容的容量 minGrowth
+                  oldCapacity >> 1           // 默认扩容的容量 prefGrowth，默认扩容旧容量的一半
+          // 根据扩充后的数组长度创建新数组并复制元素
+          return elementData = Arrays.copyOf(elementData, newCapacity);
+      } else {
+          // DEFAULT_CAPACITY 数组默认长度，10
+          return elementData = new Object[Math.max(DEFAULT_CAPACITY, minCapacity)];
+      }
+  }
+  ```
+
+  - 添加第一个元素时（此时`minCpacity`为1），底层会创建一个新的长度为10的数组
+
+  - 当数组长度存满后，再添加元素，扩容数组
+
+    - 当数组存满后，会创建一个新数组，数组长度是原来的1.5倍
+
+    - 如果一次添加多个元素，1.5倍还放不下，则新创建数组的长度以实际为准
+
+### LinkedList
+
+`Collection`：单列集合，一次添加一个数据
+
+- `List`：接口，添加的元素有序、可重复、有索引
+  - `ArrayList`
+  - LinkedList
+  - Vector
+
+**LinkedList** 拥有上层的所有方法
+
+底层数据结构是双链表，查询慢，增删快，但如果操作的是首尾元素，速度也是极快的
+
+LinkedList提供了很多首尾操作的特有API：
+
+![image-20230304135435487](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230304135435487.png)
+
+**底层原理：**
+
+- 成员变量：
+
+  ```java
+  // 链表大小
+  transient int size = 0;
+  // 头结点
+  transient Node<E> first;
+  // 尾结点
+  transient Node<E> last;
+  
+  // 结点
+  private static class Node<E> {
+      E item;
+      Node<E> next;
+      Node<E> prev;
+      Node(Node<E> prev, E element, Node<E> next) {
+          this.item = element;
+          this.next = next;
+          this.prev = prev;
+      }
+  }
+  ```
+
+- 添加元素：
+
+  ```java
+  public boolean add(E e) {
+      linkLast(e);
+      return true;
+  }
+  
+  void linkLast(E e) {
+      final Node<E> l = last; // 临时变量，存旧尾结点
+      final Node<E> newNode = new Node<>(l, e, null); // 添加的新结点
+      last = newNode; // 修改链表尾指针为新结点 
+      if (l == null)
+          first = newNode; // 空链表则链表头指针也指向新结点
+      else
+          l.next = newNode; // 修改旧尾结点的尾指针为新结点
+      size++;
+      modCount++;
+  }
+  ```
+
+### 迭代器源码
+
+**Iterator是集合的一个内部类**
+
+```java
+// 创建一个内部类对象
+public Iterator<E> iterator() {
+    return new Itr();
+}
+
+private class Itr implements Iterator<E> {
+    int cursor; // 迭代器的指针，默认指向0索引
+    int lastRet = -1; // 上一次操作的索引
+    // modCount 记录集合变化的次数，每次add或remove都是会增
+    // 当创建迭代器对象时，迭代器对象会持有这个次数
+    // 迭代器遍历时，会校验这个次数：checkForComodification()
+    // 如果迭代器持有的modCount与集合的不一致，说明迭代器迭代的过程中集合发生了并发修改，会抛出并发修改异常
+    int expectedModCount = modCount; 
+    
+    Itr() {}
+    
+    public boolean hasNext() {
+        // 当指针指向末索引后一位(即null位置)，返回false
+        return cursor != size;
+    }
+    
+    @SuppressWarnings("unchecked")
+    public E next() {
+        checkForComodification(); // 校验modCount
+        int i = cursor; // 记录当前指针指向的索引位置
+        if (i >= size)
+            throw new NoSuchElementException();
+        Object[] elementData = ArrayList.this.elementData;
+        if (i >= elementData.length)
+            throw new ConcurrentModificationException();
+        cursor = i + 1; // 移动指针
+        return (E) elementData[lastRet = i]; // 记录操作的索引，并返回此索引的元素
+    }
+}    
+```
+
+## Set集合
+
+`Set`：接口，添加的元素无序、不重复、无索引
+
+- HashSet
+  - LinkedHashSet 
+- TreeSet 
+
+Set接口中的方法基本上与Collection的API一致
+
+![image-20230206101037580](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230206101037580.png)
 
