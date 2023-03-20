@@ -1249,7 +1249,19 @@ Comparator<Integer> com2 = (o1,o2) -> o1.compareTo(o2);
     Function<Integer,String[]> func2 = String[]::new;
     ```
 
-# 【集合】
+# 【集合/数据结构】
+
+## API
+
+### List集合
+
+### Set集合
+
+
+
+
+
+### Map集合
 
 ## 集合体系结构
 
@@ -1732,7 +1744,7 @@ private class Itr implements Iterator<E> {
 
 ## Set集合
 
-`Set`：接口，添加的元素无序、不重复、无索引
+`Set`：接口，添加的元素 **无序** 、 **不重复** 、无索引
 
 - HashSet
   - LinkedHashSet 
@@ -1741,4 +1753,147 @@ private class Itr implements Iterator<E> {
 Set接口中的方法基本上与Collection的API一致
 
 ![image-20230206101037580](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230206101037580.png)
+
+### HashSet
+
+- HashSet集合底层采取哈希表存储数据
+- JDK8以前：数组+链表
+- JDK8之后：数组+链表+红黑树
+
+**哈希值：**
+
+- 是根据hashCode方法计算出int类型的整数
+- 该方法定义在Object类中，所有对象都可以进行调用，默认使用地址值进行计算
+- 一般情况下，会重写hashCode方法，利用对象内部的属性值计算哈希值
+- 哈希碰撞：
+  - 相同属性/地址的哈希值一定相同
+  - 不同属性/地址的哈希值也可能相同，即发生哈希碰撞
+
+**HashSet底层原理：**
+
+- 创建一个默认长度16，默认加载因子为0.75的数组，命名为table
+  - 加载因子：数组的扩容时机 ↓
+  - 当数组长度存入了`16×0.75=12`个元素时，数组长度会自动扩容到原来的两倍
+  - JDK8以后，当`数组长度>=64，链表长度>8`时，会把当前位置的链表转为红黑树
+- 存入元素时，通过`int index = (数组长度-1) & 哈希值`计算出应存入元素在数组中的下标
+- 判断当前位置是否为null，如果是null直接存入
+- 如果当前位置不是null，表示有元素，则调用equlas方法比较两个元素是否相同；
+  - 元素相同，不存入；
+  - 元素相同，形成链表（已有链表时equals会比较链表中每一个元素）
+  - JDK8以前：新元素存入数组，老元素挂在新元素的下面
+  - JDK8以后：新元素直接挂在老元素下面
+- 如果集合中存储的是自定义对象，必须重写hashCode和equlase方法：目的是比较对象的属性值，而不是地址值
+
+### LinkedHashSet
+
+- LinkedHashSet：**有序** 、不重复、无索引
+- 有序指的是保证存储与取出的元素顺序一致
+- **原理：** 底层数据结构依然是哈希表，只是每个元素使用双向链表记录存储的顺序。
+
+![image-20230315171505872](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230315171505872.png)
+
+### TreeSet
+
+- TreeSet：不重复、无索引、可排序
+
+- **可排序：** 默认按照元素从小到大的顺序进行存储
+
+  - 数值类型：数字大小从小到大排列
+  - 字符、字符串类型：按照字符在ASCII表中的数字升序进行排序，字符串按照首字母、次字母....的顺序排序
+
+- 底层使用红黑树实现
+
+- **比较方法：**
+
+  - 自然排序：javabean类实现Comparable接口
+
+    ```java
+    public class Student implements Comparable<Student>{
+        int id;
+        int age;
+    
+        public Student(int id, int age) {
+            this.id = id;
+            this.age = age;
+        }
+    
+        @Override
+        public int compareTo(Student o) {
+            // 主要判断条件
+            int i = this.id - o.id;
+            // 次要判断条件
+            i = (i==0 ? i : this.age-o.age);
+            return i;
+        }
+    }
+    ```
+
+  - 比较器排序：集合构造方法接收Comparator的实现类对象，重写compare(T o1,T o2)方法
+
+    ```java
+    TreeSet<Student> ts = new TreeSet<>(new Comparator<Student>() {
+        @Override
+        public int compare(Student o1, Student o2) {
+            return o1.age-o2.age;
+        }
+    });
+    ```
+
+  - 两种排序方法同时存在时，使用比较器排序
+
+## Map集合
+
+### 常用API
+
+![image-20230315174933757](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230315174933757.png)
+
+![image-20230315175018757](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230315175018757.png)
+
+**遍历方式：**
+
+- 键找值
+
+  ```java
+  // 获取所有键，把这些键放到一个单列集合中
+  Set<String> keySet = map.keySet();
+  for (String key : keySet) {
+      System.out.println(key + "=" + map.get(key));
+  }
+  ```
+
+- 依次获取所有键值对对象(entry对象)
+
+  ```java
+  // Entry是Map接口的子接口，里面存储key和value
+  Set<Map.Entry<String, String>> entries = map.entrySet();
+  for (Map.Entry entry: entries) {
+      System.out.println(entry.getKey() + "=" + entry.getValue());
+  }
+  ```
+
+- Lambda表达式遍历
+
+  ```java
+  map.forEach(
+          (key, value) -> 
+                  System.out.println(key + "=" + value)
+  );
+  ```
+
+### HashMap
+
+- 键：无序、不重复、无索引
+- 底层原理与HashSet一致，底层数据结构都是哈希表结构，默认数组长度16，增长因子0.75，根据key计算存储位置，相同key会覆盖value；
+- 当数组长度大于等于64，链表长度大于8时会转为红黑树
+
+### LinkedHashMap
+
+- 键：有序、不会重复、无索引
+- 底层原理与LinkedHashSet一致，底层数据结构是哈希表，但额外使用双向链表链接元素
+
+### TreeMap
+
+![image-20230315193612379](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230315193612379.png)
+
+### 源码解析
 
