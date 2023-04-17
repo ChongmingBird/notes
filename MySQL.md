@@ -1,5 +1,11 @@
 # 【MySQL基础篇】
 
+```properties
+spring.datasource.username=root
+spring.datasource.password=123456
+spring.datasource.url=jdbc:mysql://localhost:3306/mall?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=true
+```
+
 ## 简介
 
 > **数据库：**
@@ -1899,6 +1905,8 @@ A事务读取B事务尚未提交的数据，此时如果B事务发生错误并�
 
 **前后多次读取，数据内容不一致**
 
+**不可重复读强调 数据的修改**
+
 事务A在执行读取操作，由整个事务A比较大，前后读取同一条数据需要经历很长的时间。
 
 而在事务A第一次读取数据，比如此时读取了小明的年龄为20岁，事务B执行更改操作，将小明的年龄更改为30岁，此时事务A第二次读取到小明的年龄时，发现其年龄是30岁，和之前的数据不一样了，也就是数据不重复了，系统不可以读取到重复的数据，称为不可重复读。
@@ -1917,6 +1925,8 @@ A事务读取B事务尚未提交的数据，此时如果B事务发生错误并�
 #### 幻读
 
 事务A在执行读取操作，需要两次统计数据的总量，前一次查询数据总量后，此时事务B执行了新增数据的操作并提交后，这个时候事务A读取的数据总量和之前统计的不一样，就像产生了幻觉一样，平白无故的多了几条数据，成为幻读。
+
+**幻读强调 数据的增删**
 
 | 时间顺序 |                        事务A                        |     事务B     |
 | :------: | :-------------------------------------------------: | :-----------: |
@@ -1948,21 +1958,29 @@ A事务读取B事务尚未提交的数据，此时如果B事务发生错误并�
 
 ​	Read Uncommitted是隔离级别最低的一种事务级别。
 
+​	**读未提交，事务A可以读到事务B没有提交的数据；一个事务未提交，其变更对其他事物可见**
+
 ​	在这种隔离级别下，一个事务会读到另一个事务更新后但未提交的数据，如果另一个事务回滚，那么当前事务读到的数据就是脏数据，这就是脏读（Dirty Read）
 
 ##### Read Committed
 
-​	在Read Committed隔离级别下，一个事务可能会遇到不可重复读（Non Repeatable Read）的问题。
+​	**读已提交，事务A可以读到事务B已经提交的数据；一个事务未提交，其变更对其他事务不可见**
 
-​	不可重复读是指，在一个事务内，多次读同一数据，在这个事务还没有结束时，如果另一个事务恰好修改了这个数据，那么，在第一个事务中，两次读取的数据就可能不一致。
+​	在Read Committed隔离级别下，一个事务可能会遇到不可重复读（Non Repeatable Read）的问题。不可重复读是指，在一个事务内，多次读同一数据，在这个事务还没有结束时，如果另一个事务恰好修改了这个数据，那么，在第一个事务中，两次读取的数据就可能不一致。
 
 ##### Repeatable Read
+
+​	**可重复读，事务A执行过程中的数据是一致的；未提交的变更对其他事物不可见**
 
 ​	在Repeatable Read隔离级别下，一个事务可能会遇到幻读（Phantom Read）的问题。
 
 ​	幻读是指，在一个事务中，第一次查询某条记录，发现没有，但是，当试图更新这条不存在的记录时，竟然能成功，并且，再次读取同一条记录，它就神奇地出现了。
 
+​	**可重复读保证了数据的修改不会影响当前事务读到的数据，但对于数据增删没有要求，所以如果有数据增删了，就会出现幻读**
+
 ##### Serializable
+
+​	**串行化，对应一个记录会加读写锁，出现冲突时，后访问的事务必须等前一个事物执行完成才能继续执行**
 
 ​	Serializable是最严格的隔离级别。在Serializable隔离级别下，所有事务按照次序依次执行，因此，脏读、不可重复读、幻读都不会出现。
 
@@ -2424,7 +2442,7 @@ B+树是B树的变体，也是一棵多路查找树
 - 叶子结点形成一个单向链表
 - 非叶子结点仅仅起到索引数据的作用，具体的数据存放在叶子结点中
 
-**MySQL索引数据结构对经典的B+Tree进行了优化。在原B+Tree的基础上，增加一个指向相邻叶子节点的链表指针，就形成了带有顺序指针的B+Tree，提高区间访问的性能，利于范围查询和排序。**
+**MySQL索引数据结构对经典的B+Tree进行了优化。在原B+Tree的基础上，增加一个指向相邻叶子节点的链表指针，就形成了带有顺序指针的B+Tree（叶子结点形成环形链表），提高区间访问的性能，利于范围查询和排序。**
 
 ![image-20221031142818053](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221031142818053.png)
 
@@ -2790,7 +2808,7 @@ SELECT * FROM tb_user WHERE id = 1;
 
 ![image-20221104105930733](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221104105930733.png)
 
-如上图所示的联合索引，若需使索引生效，查询时最左边的列，也就是profession字段必须存在，且若无age字段，则status会失效
+如上图所示的联合索引，若需使索引生效，查询时最左边的列，也就是profession字段必须存在，且若无age字段（比如只有profession和），则status会失效
 
 **案例：**
 
@@ -2826,7 +2844,7 @@ SELECT * FROM tb_user WHERE id = 1;
   EXPLAIN SELECT * FROM tb_user WHERE profession='软件工程' AND age='31' AND status='0';
   -- 索引长度为49，索引仅生效profession和age
   EXPLAIN SELECT * FROM tb_user WHERE profession='软件工程' AND age='31';
-  -- 索引长度为47，索引仅上校profession
+  -- 索引长度为47，索引仅 profession
   EXPLAIN SELECT * FROM tb_user WHERE profession='软件工程';
   ```
 
@@ -3050,6 +3068,236 @@ Sub_part显示前缀索引截取的长度
 ## 触发器
 
 ## 锁
+
+> 锁是计算机协调多个进程或线程并发访问某一资源的机制。
+>
+> 在数据库中，除传统的计算资源（CPU、 RAM、I/O）的争用以外，数据也是一种供许多用户共享的资源。
+>
+> 如何保证数据并发访问的一致性、有效性是所有数据库必须解决的一个问题，锁冲突也是影响数据库并发访问性能的一个重要因素。从这个角度来说，锁对数据库而言显得尤其重要，也更加复杂。  
+
+### 分类
+
+MySQL中的锁，按照锁的粒度分，分为以下三类：
+
+- 全局锁：锁定数据库中的所有表
+- 表级锁：每次操作锁住整张表
+- 行级锁：锁住某一行的shju
+
+### 全局锁
+
+#### 介绍
+
+全局锁就是对整个数据库实例加锁，加锁后整个实例就处于只读状态，后续的DML的写语句，DDL语句，已经更新操作的事务提交语句都将被阻塞。
+
+其典型的使用场景是做**全库的逻辑备份**，对所有的表进行锁定，从而获取一致性视图，保证数据的完整性
+
+**未加全局锁：**
+
+![image-20230417140047873](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230417140047873.png)
+
+**添加全局锁：**
+
+![image-20230417140205558](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230417140205558.png)
+
+#### 语法
+
+**FTWRL:** `flush tables with read lock`
+
+```mysql
+-- 加锁
+flush tables with read lock;
+-- 解锁
+unlock tables;
+```
+
+#### 特点
+
+数据库总加全局锁，是一个比较重的操作，存在以下问题：
+
+- 如果在主库上备份，那么在备份期间都不能执行更新，业务基本停摆
+- 如果在从库上备份，那么在备份期间不能执行主库同步过来的二进制日志(binlog)，造成主从延迟
+
+**其他解决数据备份的方法：**
+
+1. 在InnoDB引擎中，我们可以在备份时加上参数`--single-transaction`参数来完成不加锁的一致性数据备份
+
+   ```mysql
+   mysqldump --single-transaction -uroot –p123456 itcast > itcast.sql
+   ```
+
+   当 mysqldump 使用参数–single-transaction 的时候，导数据之前就会启动一个事务（可重复读隔离级别），来确保拿到一致性视图。
+
+   **前提是数据库使用的是支持事务的引擎**
+
+2. `set global readonly=true`让全库进入只读状态
+
+   - 在有些系统中，readonly的值会被用来做其他逻辑，比如用来判断一个库是主库还是备库。因此，修改global变量的方式影响面更大，不建议使用
+
+   - 在异常处理机制上,
+
+     如果执行 FTWRL 命令之后由于客户端发生异常断开，那么 MySQL 会自动释放这个全局锁，整个库回到可以正常更新的状态。
+
+     而将整个库设置为 readonly 之后，如果客户端发生异常，则数据库就会一直保持 readonly 状态，这样会导致整个库长时间处于不可写状态，风险较高。
+
+**一般还是使用FTWRL的方式进行数据备份**
+
+### 表级锁
+
+#### 介绍
+
+表级锁，每次操作锁住整张表。锁定粒度大，发生锁冲突的概率最高，并发度最低。应用在MyISAM、 InnoDB、BDB等存储引擎中。 
+
+对于表级锁，主要分为以下三类：
+
+- 表锁
+- 元数据锁(meta data lock, MDL)
+- 意向锁
+
+#### 表锁
+
+**两类：**
+
+- 表共享读锁，read lock
+
+  不会阻塞其他客户端的读，但会阻塞写
+
+- 表独占写锁，write lock
+
+  即阻塞其他客户端的读，又阻塞其他客户端的写
+
+**语法：**
+
+```mysql
+-- 加锁
+lock tables 表名... read/write;
+-- 解锁，客户端断开连接也会解锁
+unlock tables;
+```
+
+#### 元数据锁
+
+meta data lock , 元数据锁，简写MDL。
+
+ MDL加锁过程是系统自动控制，无需显式使用，在访问一张表的时候会自动加上。
+
+**元数据理解为表的表结构。元数据锁的主要作用是维护表元结构的数据一致性，当一张表涉及未提交的事务时，不可以修改这张表的表结构**
+
+在MySQL5.5中引入了MDL，
+
+- 当对一张表进行增删改查的时候，加MDL读锁(共享)；
+- 当对表结构进行变更操作的时候，加MDL写锁(排他)。
+
+常见的SQL操作时，所添加的元数据锁：
+
+![image-20230417142228675](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230417142228675.png)
+
+#### 意向锁
+
+为了避免DML在执行时，加的行锁与表锁的冲突。InnoDB中引入了意向锁，使得表锁不用检查每行数据是否加锁，使用意向锁来减少表锁的检查。
+
+**在对涉及的行加行锁时，同时也会对该表加上意向锁**
+
+**此时其他客户端在对这张表加表锁的时候，会根据表上所加的意向锁来判定是否可以成功加锁，从而不用逐行判断行锁情况**
+
+- **意向共享锁（IS）：**
+
+  语句`select ... lock in share mode`添加
+
+  与表锁共享锁 (read)兼容，与表锁排他锁(write)互斥
+
+- **意向排它锁（IX）：**
+
+  语句`insert`、`update`、`delete`、`select...for update`添加
+
+  与表锁共享锁(read)及排他锁(write)都互斥，意向锁之间不会互斥
+
+- 读读兼容，读写互斥，写写互斥，意向锁间不互斥
+
+查看意向锁及行锁的加锁情况：
+
+```mysql
+select object_schema,object_name,index_name,lock_type,lock_mode,lock_data 
+from
+performance_schema.data_locks;
+```
+
+### 行级锁
+
+#### 介绍
+
+行级锁，每次操作锁住对应的行数据。
+
+锁定粒度最小，发生锁冲突的概率最低，并发度最高。
+
+应用在 InnoDB存储引擎中。
+
+InnoDB的数据是基于索引组织的，行锁是通过对索引上的索引项加锁来实现的，而不是对记录加的锁。
+
+对于行级锁，主要分为以下三类：
+
+- **行锁（Record Lock）：**
+
+  锁定单个行记录的锁，防止其他事务对此行进行update和delete。在 RC（读已提交）、RR（可重复度）隔离级别下都支持
+
+  ![image-20230417143516854](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230417143516854.png)
+
+- **间隙锁（Gap Lock）：**
+
+  锁定索引记录间隙（不含该记录），确保索引记录间隙不变，防止其他事务在这个间隙进行insert，产生幻读。
+
+  在RR隔离级别下都支持。
+
+  ![image-20230417143626039](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230417143626039.png)
+
+- **临建锁（Next-Key Lock）：**
+
+  行锁和间隙锁组合，同时锁住数据，并锁住数据前面的间隙Gap。 在RR隔离级别下支持。
+
+#### 行锁
+
+InnoDB实现了以下两种类型的行锁：
+
+- **共享锁（S）：**允许一个事务去读一行，阻止其他事务获得相同数据集的排它锁
+
+- **排它锁（X）：**允许获取排他锁的事务更新数据，阻止其他事务获得相同数据集的共享锁和排他锁
+
+- 兼容度：
+
+  ![image-20230417143937375](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230417143937375.png)
+
+常见的SQL语句，在执行时，所加的行锁如下：
+
+![image-20230417144003941](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230417144003941.png)
+
+默认情况下，InnoDB在REPEATABLE READ事务隔离级别运行，InnoDB使用 next-key 锁进行搜索和索引扫描，以防止幻读。 
+
+**针对唯一索引进行检索时，对已存在的记录进行等值匹配时，将会自动优化为行锁。** 
+
+**InnoDB的行锁是针对于索引加的锁，不通过索引条件检索数据，那么InnoDB将对表中的所有记录加锁，此时就会升级为表锁。**
+
+可以通过以下SQL，查看意向锁及行锁的加锁情况：
+
+```mysql
+select object_schema,object_name,index_name,lock_type,lock_mode,lock_data 
+from
+performance_schema.data_locks
+```
+
+#### 间隙锁&临建锁
+
+默认情况下，InnoDB在 REPEATABLE READ事务隔离级别运行，InnoDB使用 next-key 锁进行搜索和索引扫描，以防止幻读。
+
+- 索引上的等值查询（唯一索引），给不存在的记录加锁时, 优化为间隙锁。
+
+- 索引上的等值查询(非唯一普通索引)，向右遍历时最后一个值不满足查询需求时，next-key lock 退化为间隙锁。
+
+  ![image-20230417144714519](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230417144714519.png)
+
+- 索引上的范围查询(唯一索引)，会访问到不满足条件的第一个值为止。
+
+> 注意：间隙锁唯一目的是防止其他事务插入间隙。
+>
+> 间隙锁可以共存，一个事务采用的间隙锁不会阻止另一个事务在同一间隙上采用间隙锁。
 
 ## InnoDB引擎
 

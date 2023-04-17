@@ -832,6 +832,7 @@ Mybatis对动态SQL有很强大的支撑，它提供了很多的标签：
     SELECT * FROM tb_user
     <where>
         <!--
+			index:指定一个名字，用于表示在迭代过程中，每次迭代到 
             open:开始的语句
             close:结束的语句
             open和close拼接成了id IN()
@@ -892,6 +893,14 @@ Mybatis对动态SQL有很强大的支撑，它提供了很多的标签：
     <artifactId>pagehelper</artifactId>
     <version>5.3.0</version>
 </dependency>
+
+<!-- springboot分页插件,springboot用这个不用再配置 -->
+<!-- pagehelper分页插件依赖 -->
+<dependency>
+            <groupId>com.github.pagehelper</groupId>
+            <artifactId>pagehelper-spring-boot-starter</artifactId>
+            <version>1.4.6</version>
+</dependency>
 ```
 
  - 在mybaits核心配置文件中配置分页插件
@@ -946,6 +955,96 @@ System.out.println("当前页:" + pageInfo.getPageNum() + '\n' +
         ", 是否是最后一页:" + pageInfo.isIsLastPage()
 );
 ```
+
+## 代码生成器
+
+```xml
+<dependency>
+    <groupId>org.mybatis.generator</groupId>
+    <artifactId>mybatis-generator-core</artifactId>
+    <version>1.4.0</version>
+</dependency>
+```
+
+```xml
+<plugin>
+    <groupId>org.mybatis.generator</groupId>
+    <artifactId>mybatis-generator-maven-plugin</artifactId>
+    <version>1.3.2</version>
+    <configuration>
+          <!--配置文件的位置-->
+            <configurationFile>src/main/resources/mybatis-generator.xml</configurationFile>
+            <verbose>true</verbose>
+            <overwrite>true</overwrite>
+    </configuration>
+    <executions>
+            <execution>
+              <id>Generate MyBatis Artifacts</id>
+              <goals>
+                <goal>generate</goal>
+              </goals>
+            </execution>
+    </executions>
+</plugin>
+```
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE generatorConfiguration
+        PUBLIC "-//mybatis.org//DTD MyBatis Generator Configuration 1.0//EN"
+        "http://mybatis.org/dtd/mybatis-generator-config_1_0.dtd">
+
+<generatorConfiguration>
+    <!--    windows下路径, D:\downloads\xxx.jar-->
+    <classPathEntry location="C:\Users\lenovo\Desktop\Java\jar\mysql-connector-java-8.0.28.jar" />
+
+    <context id="DB2Tables" targetRuntime="MyBatis3">
+
+        <!--覆盖生成XML文件，用不了-->
+        <!--<plugin type="org.mybatis.generator.plugins.UnmergeableXmlMappersPlugin" />-->
+
+        <commentGenerator>
+            <property name="suppressAllComments" value="true"/>
+        </commentGenerator>
+
+        <jdbcConnection driverClass="com.mysql.cj.jdbc.Driver"
+                        connectionURL="jdbc:mysql://127.0.0.1:3306/mall?characterEncoding=utf-8"
+                        userId="root"
+                        password="123456">
+        </jdbcConnection>
+
+        <javaTypeResolver >
+            <property name="forceBigDecimals" value="false" />
+        </javaTypeResolver>
+
+        <javaModelGenerator targetPackage="com.chongming.mall.pojo" targetProject="src/main/java">
+            <property name="enableSubPackages" value="true" />
+            <!--            <property name="trimStrings" value="true" />-->
+        </javaModelGenerator>
+
+        <sqlMapGenerator targetPackage="mappers"  targetProject="src/main/resources">
+            <property name="enableSubPackages" value="true" />
+        </sqlMapGenerator>
+
+        <javaClientGenerator type="XMLMAPPER" targetPackage="com.chongming.mall.dao"  targetProject="src/main/java">
+            <property name="enableSubPackages" value="true" />
+        </javaClientGenerator>
+
+                <table tableName="mall_order" domainObjectName="Order" enableCountByExample="false" enableDeleteByExample="false" enableSelectByExample="false" enableUpdateByExample="false"/>
+                <table tableName="mall_order_item" domainObjectName="OrderItem" enableCountByExample="false" enableDeleteByExample="false" enableSelectByExample="false" enableUpdateByExample="false"/>
+                <table tableName="mall_user" domainObjectName="User" enableCountByExample="false" enableDeleteByExample="false" enableSelectByExample="false" enableUpdateByExample="false"/>
+                <table tableName="mall_category" domainObjectName="Category" enableCountByExample="false" enableDeleteByExample="false" enableSelectByExample="false" enableUpdateByExample="false"/>
+                <table tableName="mall_product" domainObjectName="Product" enableCountByExample="false" enableDeleteByExample="false" enableSelectByExample="false" enableUpdateByExample="false">
+                    <columnOverride column="detail" jdbcType="VARCHAR" />
+                    <columnOverride column="sub_images" jdbcType="VARCHAR" />
+                </table>
+        <table tableName="mall_shipping" domainObjectName="Shipping" enableCountByExample="false" enableDeleteByExample="false" enableSelectByExample="false" enableUpdateByExample="false"/>
+
+    </context>
+</generatorConfiguration>
+```
+
+
 
 ## 模板
 

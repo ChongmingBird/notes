@@ -1253,6 +1253,16 @@ Comparator<Integer> com2 = (o1,o2) -> o1.compareTo(o2);
 
 ## API
 
+### Queue队列
+
+LIFO(先进先出)
+
+| 方法/区别 |  抛出异常   | 返回特殊值 |
+| :-------: | :---------: | :--------: |
+|   插入    |  `add(e)`   | `offer(e)` |
+|   删除    | `remove()`  |  `poll()`  |
+|   查看    | `element()` |  `peek()`  |
+
 ### List集合
 
 ### Set集合
