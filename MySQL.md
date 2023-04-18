@@ -3283,13 +3283,13 @@ from
 performance_schema.data_locks
 ```
 
-#### 间隙锁&临建锁
+#### 间隙锁&临键锁
 
 默认情况下，InnoDB在 REPEATABLE READ事务隔离级别运行，InnoDB使用 next-key 锁进行搜索和索引扫描，以防止幻读。
 
-- 索引上的等值查询（唯一索引），给不存在的记录加锁时, 优化为间隙锁。
+- 索引上的等值查询（唯一索引），给不存在的记录加锁时, 行锁优化为间隙锁。
 
-- 索引上的等值查询(非唯一普通索引)，向右遍历时最后一个值不满足查询需求时，next-key lock 退化为间隙锁。
+- 索引上的等值查询(非唯一普通索引)，向右遍历至最后一个满足结果的值时，next-key lock 退化为间隙锁。
 
   ![image-20230417144714519](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230417144714519.png)
 
@@ -3298,12 +3298,14 @@ performance_schema.data_locks
 > 注意：间隙锁唯一目的是防止其他事务插入间隙。
 >
 > 间隙锁可以共存，一个事务采用的间隙锁不会阻止另一个事务在同一间隙上采用间隙锁。
+>
+> 间隙锁解决了可重复度隔离级别下当前读的幻读问题（快照读的幻读通过MVCC解决）
+
+
 
 ## InnoDB引擎
 
 ## MySQL管理
-
-
 
 
 
