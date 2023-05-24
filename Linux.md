@@ -163,7 +163,7 @@ command [-options] [parameter]
 >
 > 路径的写法，不是由 / 写起，例如由 /usr/share/doc 要到 /usr/share/man 底下时，可以写成：cd ../man 这就是相对路径的写法
 >
-> **Xshell7中，白色代表文件，蓝色代表目录**
+> **Xshell7中，白色代表文件，蓝色代表目录，青色代表软链接**
 >
 > `clear`：清屏
 
@@ -440,23 +440,28 @@ which 要查找的命令
 
 ### 查找文件
 
-- ```shell
+- **按照文件名查找**
+  
+  ```shell
   find 起始路径 -name "被查找的文件名"
   ```
 
   ![image-20230516145012627](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230516145012627.png)
 
   - 支持通配符`*`进行模糊匹配
-
-- ```shell
-  find 起始路径 -size +/-n[kMG]
+  
+- **按照文件大小查找**
+  
+  ```shell
+  # -n[kMG]也可以
+  find 起始路径 -size +n[kMG]
   ```
-
+  
   - `+` `-`表示大于和小于
   - `n`表示大小数字
   - kMG表示大小单位，即kb、mb、gb（注意k是小写）
 
-## 文件内容查找
+## 查找内容
 
 ### 查找-grep
 
@@ -591,7 +596,7 @@ vim filename # 打开/新建一个文件
 
   以`:`开始，通常用于文件的保存、退出
 
-### 命令模式
+## 命令模式
 
 用户刚刚启动 vi/vim，便进入了命令模式。
 
@@ -608,7 +613,7 @@ vim filename # 打开/新建一个文件
 
 命令模式只有一些最基本的命令，因此仍要依靠底线命令模式输入更多命令。
 
-### 输入模式
+## 输入模式
 
 在命令模式下按下i就进入了输入模式。
 
@@ -624,7 +629,7 @@ vim filename # 打开/新建一个文件
 - **Insert**，切换光标为输入/替换模式，光标将变成竖线/下划线
 - **ESC**，退出输入模式，切换到命令模式
 
-### 底线命令模式
+## 底线命令模式
 
 在命令模式下按下:（英文冒号）就进入了底线命令模式。
 
@@ -637,50 +642,6 @@ vim filename # 打开/新建一个文件
 - `wq`保存并退出
 
 按`ESC`键可随时退出底线命令模式。
-
-## 常用快捷键
-
-### 光标定位、翻页
-
-| 快捷键 |           操作            |   说明   |
-| :----: | :-----------------------: | :------: |
-|   0    |     将光标定位在行首      | 命令模式 |
-|   $    |        定位到行尾         | 命令模式 |
-| ctrl+→ |      向右跳一个单词       |          |
-| ctrl+← |      向左跳一个单词       |          |
-|  n+gg  | 跳转到某一行，不需要按住  | 命令模式 |
-|  Pgup  | 向上翻页（ctrl+f，front） |          |
-|  Pgdn  | 向下翻页（ctrl+b，back）  |          |
-
-### 撤销、删除
-
-|   快捷键    |      操作      |     说明     |
-| :---------: | :------------: | :----------: |
-|      u      |      撤销      |              |
-|   ctrl+r    | 恢复（反撤销） |              |
-|     dd      |    删除一行    |              |
-| :首行,尾行d |    删除多行    | 底线命令模式 |
-
-### 复制、剪切、粘贴、选中
-
-| 快捷键 |            操作            | 说明 |
-| :----: | :------------------------: | ---- |
-|   yy   |       复制光标所在行       |      |
-|  nyy   |   复制所在行开始向下n行    |      |
-|   dd   |         剪切所在行         |      |
-|  ndd   |   剪切所在行开始向下n行    |      |
-|   v    |  开始选中，可以配合yy复制  |      |
-|  ggVG  | (g+g+按住CapsLock+v+g)全选 |      |
-|   p    |            粘贴            |      |
-
-### 其他
-
-| 快捷键 |              操作              | 说明 |
-| :----: | :----------------------------: | :--: |
-|  /abc  | 查找"abc"并高亮，按n查找下一个 |      |
-| :nohl  |          取消查找高亮          |      |
-
-
 
 # 【用户权限】
 
@@ -923,5 +884,626 @@ r:4     w:2       x:1
 chmod 770 filename
 ```
 
+# 【实用技巧】
 
+## 命令行
+
+|  快捷键   |                  操作                   |                  说明                  |
+| :-------: | :-------------------------------------: | :------------------------------------: |
+|  ctrl+c   | 强制停止程序/退出当前命令输入(换行重输) |                                        |
+|  ctrl+d   |                退出/登出                | 可以退出某些程序的专属页面，比如python |
+|  history  |              搜索历史命令               |                                        |
+| !命令前缀 |      自动执行上一次匹配前缀的命令       |                                        |
+|  ctrl+r   |          输入内容匹配历史命令           |                                        |
+|  ctrl+l   |                  清屏                   |            与clear效果相同             |
+
+## 光标定位、翻页
+
+| 快捷键 |           操作            |   说明   |
+| :----: | :-----------------------: | :------: |
+|   0    |     将光标定位在行首      | 命令模式 |
+|   $    |        定位到行尾         | 命令模式 |
+| ctrl+→ |      向右跳一个单词       |          |
+| ctrl+← |      向左跳一个单词       |          |
+| ctrl+a |       跳到命令开头        |          |
+| ctrl+e |       跳到命令结尾        |          |
+|  n+gg  | 跳转到某一行，不需要按住  | 命令模式 |
+|  Pgup  | 向上翻页（ctrl+f，front） |          |
+|  Pgdn  | 向下翻页（ctrl+b，back）  |          |
+
+## 撤销、删除
+
+|   快捷键    |      操作      |     说明     |
+| :---------: | :------------: | :----------: |
+|      u      |      撤销      |              |
+|   ctrl+r    | 恢复（反撤销） |              |
+|     dd      |    删除一行    |              |
+| :首行,尾行d |    删除多行    | 底线命令模式 |
+
+## 复制、剪切、粘贴、选中
+
+| 快捷键 |            操作            | 说明 |
+| :----: | :------------------------: | ---- |
+|   yy   |       复制光标所在行       |      |
+|  nyy   |   复制所在行开始向下n行    |      |
+|   dd   |         剪切所在行         |      |
+|  ndd   |   剪切所在行开始向下n行    |      |
+|   v    |  开始选中，可以配合yy复制  |      |
+|  ggVG  | (g+g+按住CapsLock+v+g)全选 |      |
+|   p    |            粘贴            |      |
+
+## 其他
+
+| 快捷键 |              操作              | 说明 |
+| :----: | :----------------------------: | :--: |
+|  /abc  | 查找"abc"并高亮，按n查找下一个 |      |
+| :nohl  |          取消查找高亮          |      |
+
+# 【软件安装】
+
+> Linux按照软件方式：
+>
+> - 下载安装包自行安装
+> - 使用Linux命令行的应用商店，采用yum命令安装
+
+## yum命令
+
+> yum：RPM包(rpm为软件安装包)软件管理器，用于自动化安装配置Linux软件，并可以自动解决依赖
+>
+> **yum命令需要root权限与联网**
+>
+> **Ubuntu系统采用apt命令，安装包为dep包**
+
+```shell
+yum [-y] [install | remove | search] 软件名称
+```
+
+- 选项：-y，自动确认，无需手动安装或卸载过程
+- install：安装
+- remove：卸载
+- search：在应用商店中搜索
+
+**举例：安装wget：**
+
+```shell
+# 安装
+yum install wget
+# 卸载
+yum remove wget
+# 搜索
+yum search wget
+```
+
+# 【服务】
+
+## systemctl命令
+
+> Linux系统很多软件（内置第三方）均支持systemctl命令控制：启动、停止、开机自启
+>
+> 支持systemctl命令管理的软件一般也称之为：服务
+>
+> 系统内置服务很多：
+>
+> - NetworkManager，主网络服务
+> - network，副网络服务
+> - firewalld，防火墙服务
+> - sshd，ssh服务（xshell远程登录使用的就是这个）
+
+**语法：**
+
+```shell
+systemctl start | stop | status | enable | disable 服务
+```
+
+- start：启动服务
+- stop：停止服务
+- status：查看服务状态
+- enable：开机自启
+- disable：关闭开机自启
+
+**一些第三方软件安装后也可以通过systemctl进行控制：**
+
+因为这些软件安装完成后会自动注册到systemctl中，没有自动注册的软件也可以进行手动注册
+
+```shell
+# ntp，安装后会自动注册服务ntpd
+yum install -y ntp
+# httpd，安装后会自动注册服务httpd
+yum install -y httpd
+```
+
+# 【链接】
+
+## 软链接
+
+> 在系统中创建软链接，可以将文件、文件夹链接到其他位置
+>
+> 类似windows系统中的《快捷方式》
+>
+> `ln`：创建软链接
+
+**语法：**
+
+```shell
+ln -s 参数1 参数2
+```
+
+- 选项：-s，创建软链接
+- 参数1：被链接的文件或文件夹
+- 参数2：要链接去的目的地
+
+![image-20230517112524015](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230517112524015.png)
+
+# 【日期时间】
+
+## date命令
+
+> 通过date命令可以在命令行查看系统的时间
+
+```shell
+date [-d] [+格式化字符串]
+```
+
+- -d，按照给定的字符串显示日期，一般用于日期计算
+
+  可以配合格式化字符串使用
+
+  ```shell
+  [root@localhost test1]# date -d "+1 day" +%Y-%m-%d
+  # 2023-05-17，+1 day后变成05-18
+  2023-05-18
+  
+  [root@localhost test1]# date -d "-1 year +1 month +1 day" +%Y-%m-%d
+  2022-06-18
+  ```
+
+  支持的时间标记：
+
+  - year 年
+  - month 月
+  - day 天
+  - hour 小时
+  - minute 分钟
+  - second 秒
+
+- 格式化字符串：通过特定的字符串标记，用来控制显示的日期格式：
+
+  ![image-20230517152400822](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230517152400822.png)
+
+**举例：**
+
+```shell
+# 含有空格用双引号包裹
+[root@localhost test1]# date "+%Y-%m-%d %H:%M:%S"
+# 显示效果：
+2023-05-17 23:26:01
+```
+
+## 修改Linux时区
+
+```shell
+# 当前时区为UTC，与国内时区不同
+[root@localhost test1]# date
+Wed May 17 23:37:23 UTC 2023
+```
+
+**使用root权限，执行以下命令，修改时区为东八区：**
+
+删除系统自带的localtime文件，并将上海的localtime链接为localtime即可
+
+```shell
+rm -f /etc/localtime
+sudo ln -s /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+```
+
+## 自动校准-ntp
+
+**安装ntp：**
+
+```shell
+# 自动注册ntpd服务
+yum -install ntp
+```
+
+**启动服务，并设置成自动校准：**
+
+ntp启动后会定期联网校准时间
+
+```shell
+systemctl enable ntpd
+systemctl start ntpd
+```
+
+**手动校准（root）：**
+
+```shell
+# 阿里云的ntp服务器
+ntpdate -u ntp.aliyun.com
+```
+
+# 【ip/主机名】
+
+## IP地址
+
+**查看ip地址**
+
+```shell
+ifconfig
+```
+
+![image-20230517155445611](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230517155445611.png)
+
+**特殊ip地址：**
+
+- 127.0.0.1：主机ip地址
+- 0.0.0.0：特殊ip地址
+  - 可以用于指代本机
+  - 可以再端口绑定中用来确定绑定关系
+  - 在一些ip地址限制中，表示所有ip的意思，如放行规则设置为0.0.0.0，表示允许任意ip访问
+
+## 主机名
+
+> 每一台电脑除了对外联络地址（ip地址）外，也可以给系统设计一个名字，称为主机名
+
+**查询主机名**
+
+```shell
+hostname
+
+[root@localhost test1]# hostname
+localhost.localdomain
+```
+
+**修改主机名（root）：**
+
+```shell
+hostnametctl set-hostname 主机名,修改主机名
+```
+
+## 域名解析
+
+域名是ip地址的字符化，通过DNS服务器解析域名拿到对应的ip地址。
+
+域名解析具体流程如下：
+
+![image-20230517160710132](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230517160710132.png)
+
+可以在windows系统中修改本地地址本，将主机名和ip地址的映射关系配置进去，这样本机远程连接服务器，就不需要通过ip地址访问（而是可以通过主机名）
+
+**这个方法只是本地有效**
+
+- host文件地址：C:\Windows\System32\drivers\etc
+
+- 修改文件（管理员权限），尾部追加 ip 主机名映射关系：
+
+  ```txt
+  192.168.124.168 chongming
+  ```
+
+# 【网络传输】
+
+## 下载和网络请求
+
+### ping命令
+
+**ping命令检查服务器是否可联通**
+
+```shell
+ping [-c num] ip或域名
+```
+
+- 选项：-c，检查的次数，不设置将无限次数持续检查
+- 参数：ip或域名，即被检查的服务器的ip地址或域名
+
+```shell
+[root@localhost test1]# ping -c 5 www.baidu.com
+
+PING www.a.shifen.com (180.101.50.188) 56(84) bytes of data.
+64 bytes from 180.101.50.188 (180.101.50.188): icmp_seq=1 ttl=128 time=17.3 ms
+64 bytes from 180.101.50.188 (180.101.50.188): icmp_seq=2 ttl=128 time=31.3 ms
+64 bytes from 180.101.50.188 (180.101.50.188): icmp_seq=3 ttl=128 time=12.7 ms
+64 bytes from 180.101.50.188 (180.101.50.188): icmp_seq=4 ttl=128 time=15.6 ms
+64 bytes from 180.101.50.188 (180.101.50.188): icmp_seq=5 ttl=128 time=23.2 ms
+
+--- www.a.shifen.com ping statistics ---
+5 packets transmitted, 5 received, 0% packet loss, time 4029ms
+rtt min/avg/max/mdev = 12.742/20.064/31.397/6.619 ms
+
+```
+
+### wget
+
+wget是非交互式的文件下载器，可以再命令行内下载网络文件
+
+**安装**
+
+```shell
+yum -install wget
+```
+
+**语法：**
+
+```shell
+wget [-b] url
+```
+
+- 选项：-b，可选，后台下载，会将日志写入到当前工作目录的wget-log文件
+- 参数：url，下载地址
+- ctrl+c退出下载，但下载到一半的文件还存在，需要手动rm删除
+
+### curl
+
+curl可以发送http网络请求，可用于：下载文件、获取信息等
+
+**语法：**
+
+```shell
+curl [-O] url
+```
+
+- 选项：-O，用于下载文件，当url是下载链接时，可以使用此选项保存文件
+- 参数：url，要发起请求的网络地址
+
+## 端口
+
+> 端口，是设备与外界通讯交流的出入口。
+>
+> - 物理端口：又可称之为接口，是可见的端口，如usb端口、hdmi端口等
+> - 虚拟端口：是指计算机内部的端口，是不可见的，是用来操作系统和外部进行交互使用的
+>
+> ![image-20230517171104411](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230517171104411.png)
+>
+> ![image-20230517171259135](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230517171259135.png)
+
+### 查看指定ip-nmap
+
+**安装：**
+
+```shell
+yum install nmap
+```
+
+**语法：**
+
+```shell
+nmap 被查看的IP地址
+```
+
+查看目标地址公开的端口
+
+```shell
+[root@localhost test1]# nmap 192.168.124.128
+
+Starting Nmap 6.40 ( http://nmap.org ) at 2023-05-18 01:16 CST
+Nmap scan report for 192.168.124.128
+Host is up (0.0000050s latency).
+Not shown: 996 closed ports
+PORT    STATE SERVICE
+22/tcp  open  ssh
+80/tcp  open  http
+111/tcp open  rpcbind
+443/tcp open  https
+
+Nmap done: 1 IP address (1 host up) scanned in 1.69 seconds
+```
+
+### 查看端口占用-netstat
+
+可以通过netstat命令，查看指定端口的占用情况
+
+**安装和使用：**
+
+```shell
+yum install net-tools
+# netstat -anp 查看本机端口占用情况
+# 管道符+grep过滤关键字，找到指定端口
+netstat -anp | grep 端口号
+```
+
+```shell
+[root@localhost test1]# netstat -anp | grep 6000
+unix  3      [ ]         STREAM     CONNECTED     26000    1728/su
+```
+
+如果过滤后找不到说明该端口没有被使用
+
+# 【进程管理】
+
+## 进程
+
+程序运行在操作系统中，是被操作系统所管理的
+
+为管理运行的程序，每一个程序在运行的时候，便被操作系统注册为系统中的一个进程
+
+每一个进程会被分配一个独有的进程id
+
+## 查看进程
+
+**语法：**
+
+```shell
+ps [-e -f]
+```
+
+- 选项：-e，显示出全部的进程
+
+- 选项：-f，以完全格式化的形式展示信息（展示全部信息）
+
+- 一般固定用法就是：`ps -ef`（配合grep筛选）
+
+  比如：`ps -ef | grep 30001` 查找进程号关键字为30001的进程
+
+![image-20230519143701977](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230519143701977.png)
+
+| 属性  |                  说明                   |
+| :---: | :-------------------------------------: |
+|  UID  |            进程所属的用户ID             |
+|  PID  |              进程的进程号D              |
+| PPID  |   进程的父ID（启动此进程的其他进程）    |
+|   C   |       此进程的CPU占用率（百分比）       |
+| STIME |             进程的启动时间              |
+|  TTY  | 启动此进程的终端序号，`?`表示非终端启动 |
+| TIME  |            进程占用CPU的时间            |
+|  CMD  |    进程对应的名称/启动路径/启动命令     |
+
+## 关闭进程
+
+**语法：**
+
+```shell
+kill [-9] 进程ID
+```
+
+- 选项：-9，强制关闭，不使用则向进程发送要求关闭的信号，是否关闭要看进程本身的处理机制。
+
+**举例：**
+
+```shell
+kill 1712
+kill -9 1771
+```
+
+![image-20230519145040853](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230519145040853.png)
+
+# 【主机状态】
+
+## 系统资源监控
+
+**语法：**
+
+```shell
+top
+# 退出 ctrl+c
+```
+
+```shell
+-p 只显示某个进程的信息
+-d 设置刷新时间，默认是5秒
+-c 显示产生进程的完整命令，默认是进程名
+-n 指定刷新次数，比如top -n 3，刷新3次自动退出
+-b 以非交互非全屏模式运行，以批次的方式执行top（不是刷新内存，而是一页一页更新）;一般配合-n指定输出几次统计信息，将输出重定向到指定文件，比如 top -b -n 3 > /tmp/top.tmp
+-i 不显示任何闲置（idle）或无用（zombie）的进程
+-u 查找特定用户启动的进程
+```
+
+类似Win的任务管理器，默认5秒刷新一次
+
+![image-20230519145211334](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230519145211334.png)
+
+![image-20230519145402263](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230519145402263.png)
+
+![image-20230519145852734](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230519145852734.png)
+
+**top交互式选项：**
+
+| 按键 |              功能              |
+| :--: | :----------------------------: |
+| h键  |          显示帮助画面          |
+| c键  |     显示产生进程的完整命令     |
+| f键  |       选择需要展示的项目       |
+| M键  |   根据驻留内存大小(RES)排序    |
+| P键  |   根据CPU使用百分比大小排序    |
+| T键  |     根据时间/累计时间排序      |
+| E键  |      切换顶部内存显示单位      |
+| e键  |      切换进程内存显示单位      |
+| l键  | 切换显示平均负载和启动时间信息 |
+| i键  |     不显示闲置或无用的进程     |
+| t键  |      切换显示CPU状态信息       |
+| m键  |        切换显示内存信息        |
+
+## 磁盘信息监控
+
+- **`df`命令，查看空间使用情况**
+
+  ```shell
+  df -h
+  ```
+
+  h选项，以更人性化的单位显示
+
+  ![image-20230519151338610](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230519151338610.png)
+
+- **`iostat`命令，查看CPU、磁盘相关信息**
+
+  ```shell
+  iostat [-x] [num1] [num2]
+  ```
+
+  - 选项：-x，显示更多信息
+  - num1：数字，刷新间隔
+  - num2：数字，刷新次数
+
+  ![image-20230519151746482](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230519151746482.png)
+
+  
+
+## 网络状态监控
+
+sar命令查看网络的相关统计（sar命令非常复杂，仅简单用于统计网路，采用固定写法）
+
+```shell
+sar -n DEV num1 num2
+-n 查看网络
+DEV 查看网络接口
+num1 刷新间隔（默认一次就结束）
+num2 查看次数
+```
+
+
+
+# 【Shell脚本】
+
+> shell 解释器可当作人与计算机硬件的“翻译官”， 他作为用户与linux系统内部的通信媒介，除了能够支持各种变量与参数外，还提供了像判断，循环等高级编程语言有的控制流程的特性。 想要正确高效的做好系统运维工作，脚本的使用至关重要。
+>
+> shell脚本的工作方式有两种：交互式和批处理。
+>
+> - 交互式(interactive) : 用户输入一条就立即执行
+> - 批处理(batch): 由用户事先编写好一个完整的shell脚本，shell会一次性执行脚本中诸多的命令。
+>
+> 脚本中不仅会用到一般的linux命令、管道符、重定向，还需要把内部功能模块化后通过逻辑语句进行处理，最终形成日常使用的脚本。
+
+## 编写简单脚本
+
+使用vim将命令写入到一个文件中，就是一个简单的脚本
+
+shell脚本的名称可以任意，一般以`.sh`后缀标识
+
+```shell
+#！/bin/bash
+# this is a demo 
+java -cp hello.jar Test
+```
+
+> 一般脚本的第一行脚声明 `#!`用来告诉系统使用哪种shell解释器来执行该脚本
+> 第二行是对该脚本的注释信息，以便让后来使用脚本的人了解该脚本的功能或警告信息
+> 之后是脚本的命令
+
+## 脚本参数
+
+为了让shell脚本程序更好地满足用户的实时需求，以便灵活完成工作，必须要让脚本像交互式执行命令一样，能够接收用户的参数。
+脚本文件就可以接受参数，每个参数以空格隔开。
+
+```shell
+$0 代表当前脚本程序的名称
+$N 代表第N个参数，如$1为第一个参数，$2为第二个参数。。。
+$* 为所有的参数
+$? 为上一次命令执行的返回值
+```
+
+**举例：**
+
+```shell
+#!/bin/bash 
+# this a example
+echo the name of this script is $0 
+echo the first argument of this script is $1
+echo the second argument of this script is $2
+echo there are $# arguments totally, they $* 
+```
+
+**执行脚本：**
+
+```shell
+. test.sh 参数1 参数2
+```
 

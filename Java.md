@@ -16,8 +16,8 @@
 | Ctrl+Alt+Enter |               创建空行               |
 |     ALT+←      |            返回上一级源码            |
 |    Ctrl+F12    |           查看源码方法列表           |
-|                |                                      |
-|                |                                      |
+|  Ctrl+Shift+=  |             展开所有代码             |
+|  Ctrl+Shift+-  |             折叠所有代码             |
 |                |                                      |
 
 # 【String】
