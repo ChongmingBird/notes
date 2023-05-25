@@ -3061,11 +3061,978 @@ Sub_part显示前缀索引截取的长度
 
 ## SQL优化
 
+### 插入数据
+
+```mysql
+insert into tb_test values(1,'tom');
+insert into tb_test values(2,'cat');
+insert into tb_test values(3,'jerry');
+.....
+```
+
+**如果需要一次性往数据表中插入多条记录，可以从三个方面优化：**
+
+- **批量插入**
+
+  ```mysql
+  Insert into tb_test values(1,'Tom'),(2,'Cat'),(3,'Jerry');
+  ```
+
+- **手动提交事务**
+
+  避免事务的频繁开启和提交
+
+  ```mysql
+  start transaction;
+  insert into tb_test values(1,'Tom'),(2,'Cat'),(3,'Jerry');
+  insert into tb_test values(4,'Tom'),(5,'Cat'),(6,'Jerry');
+  insert into tb_test values(7,'Tom'),(8,'Cat'),(9,'Jerry');
+  commit;
+  ```
+
+- **主键顺序插入（性能优于乱序插入）：**
+
+  ```mysql
+  主键乱序插入 : 8 1 9 21 88 2 4 15 89 5 7 3
+  主键顺序插入 : 1 2 3 4 5 7 8 9 15 21 88 89
+  ```
+
+****
+
+**大批量插入数据：**
+
+如果一次性需要插入大批量数据(比如: 几百万的记录)，使用insert语句插入性能较低，此时可以使 用MySQL数据库提供的load指令进行插入。操作如下：
+
+```mysql
+-- 客户端连接服务端时，加上参数 -–local-infile
+mysql –-local-infile -u root -p
+
+-- 设置全局参数local_infile为1，开启从本地加载文件导入数据的开关
+set global local_infile = 1;
+
+-- 执行load指令将准备好的数据，加载到表结构中
+load data local infile '/root/sql1.log' into table tb_user fields
+terminated by ',' lines terminated by '\n' ;
+```
+
+![image-20230525134930268](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230525134930268.png)
+
+### 主键优化
+
+#### 数据组织方式
+
+- **在InnoDB存储引擎中，表数据都是根据主键顺序组织存放的，这种存储方式的表称为索引组织表 (index organized table IOT)。（聚簇索引）**
+
+  ![image-20230525135635870](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230525135635870.png)
+
+  行数据，都是存储在聚集索引的叶子节点上的
+
+- **InnoDB逻辑存储结构：**
+
+  ![image-20221027093040719](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20221027093040719.png)
+
+  在InnoDB引擎中，数据行是记录在逻辑结构 page 页中的，而每一个页的大小是固定的，默认16K。 那也就意味着， 一个页中所存储的行也是有限的，如果插入的数据行row在该页存储不小，将会存储到下一个页中，页与页之间会通过指针连接。
+
+  页可以为空，也可以填充一半，也可以填充100%。每个页包含了2-N行数据（如果一行数据过大，会行溢出），根据主键排列。
+
+  ![image-20230525140305647](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230525140305647.png)
+
+#### **页分裂**
+
+- **主键顺序插入效果：**
+
+  从磁盘中申请页，主键顺序插入
+
+  - 如果第一个页没满，继续往第一页插入
+  - 当第一个也写满之后，再写入第二个页，页与页之间会通过指针连接
+
+- **主键乱序插入效果：** 
+
+  **页分裂：**
+
+  假如1#，2#页都已经写满了，存放了如图所示的数据：
+
+  ![image-20230525140325052](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230525140325052.png)
+
+  此时再插入id为50的记录，因为索引结构的叶子结点是有顺序的。按照顺序，应该存储在47之后
+
+  ![image-20230525140452851](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230525140452851.png)
+
+  但是47所在的1#页，已经写满了，存储不了50对应的数据了。 那么此时会开辟一个新的页 3#。
+
+  同时并不会直接将50存入3#页，而是会将1#页后一半的数据，移动到3#页，然后在3#页，插入50。
+
+  ![image-20230525140519342](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230525140519342.png)
+
+  移动数据，并插入id为50的数据之后，那么此时，这三个页之间的数据顺序是有问题的。 1#的下一个 页，应该是3#， 3#的下一个页是2#。 所以，此时，需要重新设置链表指针。
+
+  ![image-20230525140600201](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230525140600201.png)
+
+  **页分裂是比较耗费性能的操作**
+
+#### **页合并**
+
+目前表中已有数据的索引结构(叶子节点)如下：
+
+![image-20230525140742507](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230525140742507.png)
+
+当对已有数据进行删除：删除一行记录时，实际上记录并没有被物理删除，只是记录被标记（flaged）为删除并且它的空间变得允许被其他记录声明使用。
+
+![image-20230525140759898](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230525140759898.png)
+
+当页中删除的记录达到 MERGE_THRESHOLD（默认为页的50%），InnoDB会开始寻找最靠近的页（前或后）看看是否可以将两个页合并以优化空间使用。
+
+![image-20230525140845659](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230525140845659.png)
+
+**这里发生的合并页的现象，称之为页合并**
+
+> MERGE_THRESHOLD：合并页的阈值，可以自己设置，在创建表或者创建索引时指定。
+
+#### **索引设计原则**
+
+- **满足业务需求的情况下，尽量降低主键的长度**
+  - 因为二级索引只存储主键，主键过长会让二级索引占用过多空间
+- **插入数据时，尽量选择顺序插入，选择使用AUTO_INCREMENT自增主键**
+  - 为维护主键索引数据结构，主键乱序插入会导致页分裂现象
+- **尽量不要使用UUID做主键或者其他自然主键，如身份证号**
+  - 无序的主键在插入时是乱序插入，更容易发生页分裂
+  - UUID、身份证号之类的主键长度较长，浪费IO
+- **业务操作时，避免对主键的修改**
+
+### **Order By优化**
+
+**MySQL的排序，有两种方式：**
+
+- **Using filesort :** 
+
+  通过表的索引或全表扫描，读取满足条件的数据行，然后在排序缓冲区sort buffer中完成排序操作。
+
+  所有不是通过索引直接返回排序结果的排序都叫 FileSort 排序。
+
+- **Using Index：**
+
+  通过有序索引顺序扫描直接返回有序数据，这种情况即为 using index，不需要 额外排序，操作效率高。
+
+**对于以上的两种排序方式，Using index的性能高，而Using filesort的性能低。所以在优化排序操作时，尽量要优化为 Using index。**
+
+****
+
+**Order By 优化原则：**
+
+- **根据排序字段建立合适的索引，多字段排序时，也遵循最左前缀法则**
+
+  不满足最左前缀法则，索引部分生效，EXPLAIN解析结果extra字段会标注`Using index,Using filesort`
+
+- **尽量使用覆盖索引**
+
+  覆盖索引即查询索引中的值已经足够返回结果，不需要回表；
+
+  没有使用覆盖索引，无法根据索引优化排序
+
+- **多字段排序，一个升序一个降序，此时需要注意联合索引在创建时的规则（ASC/DESC，默认升序ASC）**
+
+  单索引升序索引，倒序排序字段会反向扫描索引，EXPLAIN查看执行信息时，会在extra字段标注`Backward index scan`
+
+  联合索引排序时，如果创建默认升序的联合索引，并且第一个索引升序排序，第二个索引降序排序，会出现`Using filesort`，因为需要额外的排序
+
+- **如果不可避免的出现filesort，大数据量排序时，可以适当增大排序缓冲区大小 sort_buffer_size(默认256k)**
+
+### **Group By优化**
+
+**排序方式(EXPLAIN分析得到的extra字段信息)：**
+
+- **Using temporary**
+
+  使用了临时表，没使用索引，性能低
+
+- **Using index**
+
+  使用了索引，性能高
+
+**Group By优化原则**
+
+- **分组操作时，可以通过索引来提高效率**
+
+- **分组操作时，索引的使用也应当满足最左前缀法则**
+
+  where出现第一个字段，group by第二个字段，也是满足最左前缀法则
+
+### **Limit优化**
+
+在数据量比较大时，如果进行limit分页查询，在查询时，越往后，分页查询效率越低。
+
+![image-20230525143908135](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230525143908135.png)
+
+因为，当在进行分页查询时，如果执行 limit 2000000,10 ，此时需要MySQL排序前2000010记录，仅仅返回 2000000 - 2000010 的记录，**其他记录丢弃，查询排序的代价非常大 。** 
+
+****
+
+**优化思路：**
+
+- **索引优化：**
+
+  一般分页查询时，通过创建覆盖索引能够比较好地提高性能（可以在子表中使用覆盖索引）
+
+  - **子查询优化：**
+
+    **先在子查询中，用覆盖索引通过索引执行分页查询出主键，再从以子表结果去主表回表拿数据**
+
+  ```mysql
+  explain select * from tb_sku t , (select id from tb_sku order by id limit 2000000,10) a where t.id = a.id);
+  ```
+
+  - **延迟关联：**
+
+    和上述的子查询做法类似，可以使用JOIN，先在索引列上完成分页操作，然后再回表获取所需要的列。
+
+  ```mysql
+  select a.* from t5 a inner join (select id from t5 order by text limit 1000000, 10) b on a.id=b.id;
+  ```
+
+- **记录上次查询结束的位置：**
+
+  使用某种变量记录上一次数据的位置，分页时直接从这个变量的位置开始扫描，从而避免Mysql扫描大量数据再抛弃的操作：
+
+  ```mysql
+  select * from t5 where id>=1000000 limit 10;
+  ```
+
+### Count优化
+
+数据量很大的时候，执行count操作时，是非常耗时的：
+
+- MyISAM 引擎把一个表的总行数存在了磁盘上，因此执行count(*)的时候会直接返回这个数，效率很高； 
+
+  但是如果是带条件的count，MyISAM也慢。
+
+- InnoDB 引擎就麻烦了，它执行 count(*) 的时候，需要把数据一行一行地从引擎里面读出来，然后累积计数。
+
+count() 是一个聚合函数，对于返回的结果集，一行行地判断，如果 count 函数的参数不是 NULL，累计值就加 1，否则不加，最后返回累计值。
+
+| COUNT用法 | 含义                                                         |
+| :-------: | :----------------------------------------------------------- |
+| **主键**  | InnoDB 引擎会遍历整张表，把每一行的主键id值都取出来，返回给服务层。 服务层拿到主键后，直接按行进行累加(主键不可能为null) |
+| **字段**  | **没有not null约束** : InnoDB 引擎会遍历整张表把每一行的字段值都取出 来，返回给服务层，服务层判断是否为null，不为null，计数累加。<br />**有not null约束**：InnoDB 引擎会遍历整张表把每一行的字段值都取出来，返回给服务层，直接按行进行累加。 |
+|  **\***   | InnoDB引擎并不会把全部字段取出来，而是专门做了优化，不取值，服务层直接按行进行累加。 |
+|   **1**   | InnoDB 引擎遍历整张表，但不取值。服务层对于返回的每一行，放一个数字“1”进去，直接按行进行累加。 |
+
+> 按照效率排序的话，count(字段) < count(主键 id) < count(1) ≈ count(\*)，所以尽 量使用 count(\*)。
+>
+> 目前基于磁盘的数据库或者搜索引擎（比如Lucene）的性能瓶颈主要都是在IO阶段，相比于CPU和RAM，IO操作实在太慢了，所以这类系统的优化方向也都都是类似的——尽一切可能减少IO的次数（所以很多用ES的程序在性能优化到极限的时候选择直接上SSD）。
+>
+> **这里统计行数的操作，查询优化器的优化方向就是选择能够让IO次数最少的索引，也就是基于占用空间最小的字段所建的索引**（每次IO读取的数据量是固定的，索引占用的空间越小所需的IO次数也就越少）。
+>
+> 而Innodb的主键索引是聚簇索引（包含了KEY，除了KEY之外的其他字段值，事务ID和MVCC回滚指针）所以**主键索引一定会比二级索引（包含KEY和对应的主键ID）大**，也就是说在有二级索引的情况下，一**般COUNT()都不会通过主键索引来统计行数，在有多个二级索引的情况下选择占用空间最小的。**
+
+### Update优化
+
+- **在执行下面的SQL语句时**
+
+  ```mysql
+  update course set name = 'javaEE' where id = 1 ;
+  ```
+
+  会锁定id=1的这一行数据，然后事务提交之后，行锁释放
+
+- **但是当执行下面的SQL时：**
+
+  ```mysql
+  update course set name = 'SpringBoot' where name = 'PHP' ;
+  ```
+
+  当开启多个事务，在执行上述的SQL时，因为name字段没有索引，此时行锁会升级为表锁，性能大大降低
+
+> InnoDB的行锁是针对索引加的锁，不是针对记录加的锁 ,并且该索引不能失效，否则会从行锁升级为表锁 。
+
 ## 视图
+
+### 介绍
+
+视图（View）是一种虚拟存在的表。
+
+视图中的数据并不在数据库中实际存在，行和列数据来自定义视图的查询中使用的表，并且是在使用视图时动态生成的。 
+
+通俗的讲，视图只保存了查询的SQL逻辑，不保存查询结果。所以在创建视图的时候，主要的工作就落在创建这条SQL查询语句上。
+
+### 视图作用
+
+- **简单**
+
+  视图不仅可以简化用户对数据的理解，也可以简化他们的操作。
+
+  那些被经常使用的查询可以被定义为视图，从而使得用户不必为以后的操作每次指定全部的条件。
+
+- **安全**
+
+  数据库可以授权，但不能授权到数据库特定行和特定的列上。
+
+  通过视图用户只能查询和修改他们所能见到的数据
+
+  **数据独立**
+
+  视图可帮助用户屏蔽真实表结构变化带来的影响。
+
+### 语法
+
+- **创建视图：**
+
+  ```mysql
+  CREATE [OR REPLACE] VIEW 视图名称[(列名列表)] AS SELECT语句 [ WITH [
+  CASCADED | LOCAL ] CHECK OPTION ]
+  ```
+
+- **查询视图：**
+
+  ```mysql
+  查看创建视图语句：
+  SHOW CREATE VIEW 视图名称;
+  查看视图数据：
+  SELECT * FROM 视图名称 ...... ;
+  ```
+
+- **修改视图：**
+
+  ```mysql
+  方式一：
+  CREATE [OR REPLACE] VIEW 视图名称[(列名列表)] AS SELECT语句 [ WITH [ CASCADED | LOCAL ] CHECK OPTION ]
+  方式二：
+  ALTER VIEW 视图名称[(列名列表)] AS SELECT语句 [ WITH [ CASCADED | LOCAL ] CHECK OPTION ]
+  ```
+
+- **删除视图**
+
+  ```mysql
+  DROP VIEW [IF EXISTS] 视图名称 [,视图名称] ...
+  ```
+
+### 检查选项
+
+在创建视图时，指定了条件 id<=10 ；
+
+此时在视图中执行了操作，insert了id为17和id为6的数据
+
+在视图中查询，查询不到id=17的数据，但是基表中已经确实插入
+
+id=17，显然不符合视图定义的条件，**如果在定义视图时，希望不符合条件的操作不被执行，可以借助视图的检查选项**
+
+**当使用`WITH CHECK OPTION`子句创建视图时，MySQL会通过视图检查正在更改的每个行，例如插入，更新，删除，以使其符合视图的定义。** 
+
+**MySQL允许基于另一个视图创建视图，它还会检查依赖视图中的规则以保持一致性。**
+
+为了确定检查的范围，mysql提供了两个选项：`CASCADED` 和 `LOCAL` ，默认值为 `CASCADED` 
+
+- `CASCADED`：级联
+
+  **当我们在操作视图的时候，cascaded检查选项会递归地检查所依赖的视图的条件，无论这些视图是否指定检查选项**
+
+  比如，v2视图是基于v1视图的，如果在v2视图创建的时候指定了检查选项为 cascaded，但是v1视图创建时未指定检查选项。 
+
+  则在执行检查时，不仅会检查v2，还会级联检查v2的关联视图v1。
+
+  ```mysql
+  # case1
+  # 创建一个基于students表的视图
+  create or replace view v1 as select id,name from students where id<=20;
+  # 由于没有检查选项，所以插入id>20的数据也会插入成功
+  insert into v1 values(21,'john');	# 插入成功
+  
+  # case2
+  # 创建一个基于v1的视图，并添加cascaded检查选项
+  create or replace view v2 as select id,name from v1 where id>10 with cascaded check option;
+  
+  # 添加检查选项后，再插入数据，MySQL就会判断插入数据是否满足条件，
+  # 由于此视图是基于v1的，所以现在可以插入的id值为 10<id<=20。
+  insert into v2 values（22，'lucy');	# 插入失败
+  
+  # case3
+  # 创建一个基于v2的视图
+  create or replace v3 as select id,name from v2 where id<=15;
+  
+  # 由于v3没有添加检查选项，但v3是基于v2的，所以现在可以插入的id值依然为 10<id<=20。
+  insert into v3 values(18,'Tom');	# 插入成功
+  
+  insert into v3 values(24,'kobe');	# 插入失败
+  ```
+
+- `LOCAL`：本地
+
+  **当我们在操作当前视图时，local检查选项是递归地查找当前视图所依赖的视图是否有检查选项，如果有，则检查；如果没有，就不做检查**
+
+  比如，v2视图是基于v1视图的，如果在v2视图创建的时候指定了检查选项为 local ，但是v1视图创建时未指定检查选项。 
+
+  则在执行检查时，只会检查v2，不会检查v2的关联视图v1。
+
+  ```mysql
+  # case1
+  # 创建一个基于students表的视图
+  create or replace view v1 as select id,name from students where id<=20;
+  
+  insert into v1 values(21,'john');	# 插入成功
+  
+  # case2
+  # 创建一个基于v1的视图，并添加local检查选项
+  create or replace view v2 as select id,name from v1 where id>10 with local check option;
+  
+  # 添加检查选项后，再插入数据，MySQL就会判断插入数据是否满足条件，
+  # 由于此视图是基于v1的，v1没有检查选项，所以现在可以插入的id值为 id>10。
+  insert into v2 values（22，'lucy');	# 插入成功
+  
+  #case3
+  #创建一个基于v2的视图
+  create or replace v3 as select id,name from v2 where id<=15;
+  
+  #由于v3没有添加检查选项，但v3是基于v2的，所以现在可以插入的id值依然为 id>10。
+  insert into v3 values(18,'Tom');	# 插入成功
+  ```
+
+### 视图的更新
+
+要使视图可更新，视图中的行与基础表中的行之间必须存在一对一的关系。
+
+**如果视图包含以下任何一项，则该视图不可更新：**
+
+- 聚合函数或窗口函数
+- `DISTINCT`
+- `GROUP BY`
+- `HAVING`
+- `UNION`或者`UNION ALL`
 
 ## 存储过程
 
+存储过程是事先经过编译并存储在数据库中的一段SQL语句的集合，调用存储过程可以简化应用开发人员的很多工作，减少数据在数据库和应用服务器之间的传输，对于提高数据处理的效率是有好处的。 
+
+存储过程思想上很简单，就是数据库SQL语言层面的代码封装与重用。
+
+![image-20230525160727331](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230525160727331.png)
+
+**特点：**
+
+- **封装，复用：**
+
+  可以把某一业务SQL封装在存储过程中，需要用到的时候直接调用即可
+
+- **可以接收参数，也可以返回数据：**
+
+  在存储过程中，可以传递参数，也可以接收返回值
+
+- **减少网络交互，效率提升：**
+
+  如果涉及到多条SQL，每执行一次都是一次网络传输。而如果封装在存储过程中，就只需要网络交互一次就够了
+
+### 语法
+
+1. **创建**
+
+   ```mysql
+   CREATE PROCEDURE 存储过程名称 ([ 参数列表 ])
+   BEGIN
+   -- SQL语句
+   END ;
+   ```
+
+2. **调用**
+
+   ```mysql
+    CALL 名称 ([ 参数 ]);
+   ```
+
+3. **查看**
+
+   ```mysql
+    -- 查询指定数据库的存储过程及状态信息
+   SELECT * FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_SCHEMA = 'xxx';
+   -- 查询某个存储过程的定义
+   SHOW CREATE PROCEDURE 存储过程名称 ; 
+   ```
+
+4. **删除**
+
+   ```mysql
+    DROP PROCEDURE [ IF EXISTS ] 存储过程名称;
+   ```
+
+**演示示例：**
+
+```mysql
+-- 存储过程基本语法
+-- 创建
+create procedure p1()
+begin
+select count(*) from student;
+end;
+
+-- 调用
+call p1();
+
+-- 查看
+select * from information_schema.ROUTINES where ROUTINE_SCHEMA = 'itcast';
+show create procedure p1;
+
+-- 删除
+drop procedure if exists p1;
+```
+
+### 变量
+
+在MySQL中变量分为三种类型：系统变量、用户定义变量、局部变量。
+
+#### 系统变量
+
+系统变量是MySQL服务器提供，不是用户定义的，属于服务器层面。
+
+分为全局变量（GLOBAL）、会话变量（SESSION）。
+
+- **查看系统变量：**
+
+  ```mysql
+   -- 查看所有系统变量
+  SHOW [ SESSION | GLOBAL ] VARIABLES;
+  -- 可以通过LIKE模糊匹配方式查找变量
+  SHOW [ SESSION | GLOBAL ] VARIABLES LIKE '......'; 
+  -- 查看指定变量的值
+  SELECT @@[SESSION | GLOBAL] 系统变量名; 
+  ```
+
+- **设置系统变量：**
+
+  ```mysql
+  SET [ SESSION | GLOBAL ] 系统变量名 = 值 ;
+  SET @@[SESSION | GLOBAL] 系统变量名 = 值 ;
+  ```
+
+> 注意: 
+>
+> 如果没有指定SESSION/GLOBAL，默认是SESSION，会话变量。 
+>
+> A. 全局变量(GLOBAL): 全局变量针对于所有的会话。 
+>
+> B. 会话变量(SESSION): 会话变量针对于单个会话，在另外一个会话窗口就不生效了。
+
+**演示示例：**
+
+```mysql
+-- 查看系统变量
+show session variables ;
+show session variables like 'auto%';
+show global variables like 'auto%';
+select @@global.autocommit;
+select @@session.autocommit;
+-- 设置系统变量
+set session autocommit = 1;
+insert into course(id, name) VALUES (6, 'ES');
+set global autocommit = 0;
+select @@global.autocommit;
+```
+
+#### 用户定义变量
+
+用户定义变量是用户根据需要自己定义的变量，用户变量不用提前声明，在用的时候直接用 "@变量名" 使用就可以。
+
+其作用域为当前连接。
+
+**赋值：**
+
+- 方式一：
+
+  ```mysql
+  SET @var_name = expr [, @var_name = expr] ... ;
+  SET @var_name := expr [, @var_name := expr] ... ;
+  ```
+
+  赋值时，可以使用`=`，也可以使用`:=`。
+
+- 方式二
+
+  ```mysql
+  SELECT @var_name := expr [, @var_name := expr] ... ;
+  SELECT 字段名 INTO @var_name FROM 表名;
+  ```
+
+**使用：**
+
+> 注意: 用户定义的变量无需对其进行声明或初始化，只不过获取到的值为NULL。
+
+```mysql
+SELECT @var_name ;
+```
+
+**演示示例：**
+
+```mysql
+-- 赋值
+set @myname = 'itcast';
+set @myage := 10;
+set @mygender := '男',@myhobby := 'java';
+select @mycolor := 'red';
+select count(*) into @mycount from tb_user;
+-- 使用
+select @myname,@myage,@mygender,@myhobby;
+select @mycolor , @mycount;
+select @abc; -- NULL
+```
+
+#### 局部变量
+
+局部变量是根据需要定义的在局部生效的变量，访问之前，需要DECLARE声明。
+
+可用作存储过程内的局部变量和输入参数，局部变量的范围是在其内声明的BEGIN ... END块。
+
+**声明：**
+
+```mysql
+DECLARE 变量名 变量类型 [DEFAULT ... ] ;
+```
+
+**赋值：**
+
+```mysql
+SET 变量名 = 值 ;
+SET 变量名 := 值 ;
+SELECT 字段名 INTO 变量名 FROM 表名 ... ;
+```
+
+**演示示例：**
+
+```mysql
+-- 声明局部变量 - declare
+-- 赋值
+create procedure p2()
+begin
+	declare stu_count int default 0;
+	select count(*) into stu_count from student;
+	select stu_count;
+end;
+call p2();
+```
+
+### if
+
+if 用作条件判断，具体的语法结构为：
+
+```mysql
+IF 条件1 THEN
+	.....
+ELSEIF 条件2 THEN -- 可选
+	.....
+ELSE -- 可选
+	.....
+END IF;
+```
+
+在if条件判断的结构中，
+
+ELSEIF结构可以有多个，也可以没有。
+
+ELSE结构可以有，也可以没有。
+
+### 参数
+
+参数的类型，主要分为以下三种：`IN`、`OUT`、`INOUT`。
+
+具体含义如下：
+
+| 类型  |                     含义                     | 备注 |
+| :---: | :------------------------------------------: | :--: |
+|  IN   |   该类参数作为输入，也就是需要调用时传入值   | 默认 |
+|  OUT  | 该类参数作为输出，也就是该参数可以作为返回值 |      |
+| INOUT |    既可以作为输入参数，也可以作为输出参数    |      |
+
+**用法：**
+
+```mysql
+CREATE PROCEDURE 存储过程名称 ([ IN|OUT|INOUT 参数名 参数类型 ])
+BEGIN
+	-- SQL语句
+END ;
+```
+
+**演示示例：**
+
+```mysql
+create procedure p4(in score int, out result varchar(10))
+begin
+	if score >= 85 then
+		set result := '优秀';
+	elseif score >= 60 then
+		set result := '及格';
+	else
+		set result := '不及格';
+	end if;
+end;
+-- 定义用户变量 @result来接收返回的数据, 用户变量可以不用声明
+call p4(18, @result);
+select @result;
+```
+
+### case
+
+case结构及作用和流程控制函数很类似
+
+**语法1：**
+
+```mysql
+-- 含义：当
+-- case_value的值为when_value1时，执行statement_list1；
+-- 当值为 when_value2时，执行statement_list2，否则就执行statement_list
+CASE case_value
+	WHEN when_value1 THEN statement_list1
+	[ WHEN when_value2 THEN statement_list2] ...
+	[ ELSE statement_list ]
+END CASE;
+```
+
+**语法2：**
+
+```mysql
+-- 含义：
+-- 当条件search_condition1成立时，执行statement_list1，
+-- 当条件search_condition2成立时，执行statement_list2，否则就执行statement_list
+CASE
+	WHEN search_condition1 THEN statement_list1
+	[WHEN search_condition2 THEN statement_list2] 
+	...
+	[ELSE statement_list]
+END CASE;
+```
+
+### while
+
+while循环是有条件的循环控制语句。
+
+满足条件后，再执行循环体中的SQL语句。
+
+具体语法为：
+
+```mysql
+-- 先判定条件，如果条件为true，则执行逻辑，否则，不执行逻辑
+WHILE 条件 DO
+	SQL逻辑...
+END WHILE;
+```
+
+### repeat
+
+repeat是有条件的循环控制语句,
+
+当满足until声明的条件的时候，则退出循环 。
+
+具体语法为：
+
+```mysql
+-- 先执行一次逻辑，然后判定UNTIL条件是否满足，如果满足，则退出。
+-- 如果不满足，则继续下一次循环
+REPEAT
+	SQL逻辑...
+UNTIL 条件
+END REPEAT;
+```
+
+### loop
+
+LOOP 实现简单的循环，如果不在SQL逻辑中增加退出循环的条件，可以用其来实现简单的死循环。 
+
+LOOP可以配合一下两个语句使用：
+
+- LEAVE：配合循环使用，退出循环
+- ITERATE：必须用在循环中，作用是跳过当前循环剩下的语句，直接进入下一次循环
+
+```mysql
+[begin_label:] LOOP
+	SQL逻辑...
+END LOOP [end_label];
+```
+
+```mysql
+LEAVE label; -- 退出指定标记的循环体
+ITERATE label; -- 直接进入下一次循环
+```
+
+### 游标
+
+游标（CURSOR）是用来存储查询结果集的数据类型 , 在存储过程和函数中可以使用游标对结果集进行循环的处理。
+
+游标的使用包括游标的声明、OPEN、FETCH 和 CLOSE，其语法分别如下：
+
+- 声明游标
+
+  ```mysql
+  DECLARE 游标名称 CURSOR FOR 查询语句 ;
+  ```
+
+- 打开游标
+
+  ```mysql
+  OPEN 游标名称 ;
+  ```
+
+- 获取游标记录
+
+  ```mysql
+  FETCH 游标名称 INTO 变量 [, 变量 ] ;
+  ```
+
+- 关闭游标
+
+  ```mysql
+  CLOSE 游标名称 ;
+  ```
+
+**演示示例：**
+
+根据传入的参数uage，来查询用户表tb_user中，所有的用户年龄小于等于uage的用户姓名（name）和专业（profession），并将用户的姓名和专业插入到所创建的一张新表 (id,name,profession)中。
+
+```mysql
+-- 逻辑:
+-- A. 声明游标, 存储查询结果集
+-- B. 准备: 创建表结构
+-- C. 开启游标
+-- D. 获取游标中的记录
+-- E. 插入数据到新表中
+-- F. 关闭游标
+create procedure p11(in uage int)
+begin
+	declare uname varchar(100);
+	declare upro varchar(100);
+	-- 声明游标
+	declare u_cursor cursor for select name,profession from tb_user where age <=uage;
+	drop table if exists tb_user_pro;
+	-- 创建表结构
+	create table if not exists tb_user_pro(id int primary key auto_increment,name varchar(100),profession varchar(100));
+	-- 开启游标
+	open u_cursor;
+	while true do
+		-- 获取游标中的记录
+		fetch u_cursor into uname,upro;
+		-- 插入数据到新表中
+		insert into tb_user_pro values (null, uname, upro);
+	end while;
+	-- 关闭游标
+	close u_cursor;
+end;
+call p11(30);
+```
+
+上述的存储过程，最终在调用的过程中，会报错，之所以报错是因为上面的while循环中，并没有退出条件。
+
+当游标的数据集获取完毕之后，再次获取数据，就会报错，从而终止了程序的执行。
+
+但是此时，tb_user_pro表结构及其数据都已经插入成功了
+
+要想解决这个问题，就需要通过MySQL中提供的条件处理程序 Handler 来解决
+
+### 条件处理程序
+
+条件处理程序（Handler）可以用来定义在流程控制结构执行过程中遇到问题时相应的处理步骤。
+
+具体语法为：
+
+```mysql
+DECLARE handler_action HANDLER FOR condition_value [, condition_value]... statement ;
+-- handler_action 的取值：
+	CONTINUE: 继续执行当前程序
+	EXIT: 终止执行当前程序
+-- condition_value 的取值：
+	SQLSTATE sqlstate_value: 状态码，如 02000
+	SQLWARNING: 所有以01开头的SQLSTATE代码的简写
+	NOT FOUND: 所有以02开头的SQLSTATE代码的简写
+	SQLEXCEPTION: 所有没有被SQLWARNING 或 NOT FOUND捕获的SQLSTATE代码的简写
+```
+
+**演示示例：**优化游标一节中的代码
+
+根据传入的参数uage，来查询用户表tb_user中，所有的用户年龄小于等于uage的用户姓名 （name）和专业（profession），并将用户的姓名和专业插入到所创建的一张新表 (id,name,profession)中。
+
+- **通过SQLSTATE指定具体的状态码**
+
+  ```mysql
+  -- 逻辑:
+  -- A. 声明游标, 存储查询结果集
+  -- B. 准备: 创建表结构
+  -- C. 开启游标
+  -- D. 获取游标中的记录
+  -- E. 插入数据到新表中
+  -- F. 关闭游标
+  create procedure p11(in uage int)
+  begin
+  	declare uname varchar(100);
+  	declare upro varchar(100);
+  	declare u_cursor cursor for select name,profession from tb_user where age <= uage;
+  	-- 声明条件处理程序：当SQL语句执行抛出的状态码为02000时，将关闭游标u_cursor，并退出
+  	declare exit handler for SQLSTATE '02000' close u_cursor;
+  	drop table if exists tb_user_pro;
+  	create table if not exists tb_user_pro(
+  		id int primary key auto_increment,
+  		name varchar(100),
+  		profession varchar(100)
+      );
+  	open u_cursor;
+  	while true do
+  		fetch u_cursor into uname,upro;
+  		insert into tb_user_pro values (null, uname, upro);
+  	end while;
+  	close u_cursor;
+  end;
+  call p11(30);
+  ```
+
+- **通过SQLSTATE的代码简写方式 NOT FOUND**
+
+  02 开头的状态码，代码简写为 NOT FOUND
+
+  ```mysql
+  create procedure p12(in uage int)
+  begin
+  	declare uname varchar(100);
+  	declare upro varchar(100);
+  	declare u_cursor cursor for select name,profession from tb_user where age <= uage;
+  	-- 声明条件处理程序：当SQL语句执行抛出的状态码为02开头时，将关闭游标u_cursor，并退出
+  	declare exit handler for not found close u_cursor;
+  	drop table if exists tb_user_pro;
+  	create table if not exists tb_user_pro(
+  		id int primary key auto_increment,
+      	name varchar(100),
+  		profession varchar(100)
+  	);
+  	open u_cursor;
+  	while true do
+  		fetch u_cursor into uname,upro;
+  		insert into tb_user_pro values (null, uname, upro);
+  	end while;
+  	close u_cursor;
+  end;
+  call p12(30);
+  ```
+
+> 具体的错误状态码，可以参考官方文档： 
+>
+> [MySQL :: MySQL 8.0 Reference Manual :: 13.6.7.2 DECLARE ... HANDLER Statement](https://dev.mysql.com/doc/refman/8.0/en/declare-handler.html)
+>
+> [MySQL :: MySQL 8.0 Error Reference :: 2 Server Error Message Reference](https://dev.mysql.com/doc/mysql-errors/8.0/en/server-error-reference.html)
+
+### 存储函数
+
+存储函数是有返回值的存储过程，存储函数的参数只能是IN类型的。
+
+具体语法如下：
+
+```mysql
+CREATE FUNCTION 存储函数名称 ([ 参数列表 ])
+RETURNS type [characteristic ...]
+BEGIN
+	-- SQL语句
+	RETURN ...;
+END ;
+```
+
+ **characteristic说明：** 
+
+- `DETERMINISTIC`：相同的输入参数总是产生相同的结果
+- `NO SQL`：不包含SQL语句。
+- `READS SQL DATA`：包含读取数据的语句，但不包含写入数据的语句
+
 ## 触发器
+
+
 
 ## 锁
 
@@ -3077,11 +4044,11 @@ Sub_part显示前缀索引截取的长度
 
 ### 分类
 
-MySQL中的锁，按照锁的粒度分，分为以下三类：
+**MySQL中的锁，按照锁的粒度分，分为以下三类：**
 
 - 全局锁：锁定数据库中的所有表
 - 表级锁：每次操作锁住整张表
-- 行级锁：锁住某一行的shju
+- 行级锁：锁住某一行的数据
 
 ### 全局锁
 
@@ -3101,7 +4068,7 @@ MySQL中的锁，按照锁的粒度分，分为以下三类：
 
 #### 语法
 
-**FTWRL:** `flush tables with read lock`
+**全局锁（FTWRL）:** `flush tables with read lock`
 
 ```mysql
 -- 加锁
@@ -3145,9 +4112,13 @@ unlock tables;
 
 #### 介绍
 
-表级锁，每次操作锁住整张表。锁定粒度大，发生锁冲突的概率最高，并发度最低。应用在MyISAM、 InnoDB、BDB等存储引擎中。 
+表级锁，每次操作锁住整张表。
 
-对于表级锁，主要分为以下三类：
+锁定粒度大，发生锁冲突的概率最高，并发度最低。
+
+应用在MyISAM、 InnoDB、BDB等存储引擎中。 
+
+**对于表级锁，主要分为以下三类：**
 
 - 表锁
 - 元数据锁(meta data lock, MDL)
@@ -3184,8 +4155,8 @@ meta data lock , 元数据锁，简写MDL。
 
 在MySQL5.5中引入了MDL，
 
-- 当对一张表进行增删改查的时候，加MDL读锁(共享)；
-- 当对表结构进行变更操作的时候，加MDL写锁(排他)。
+- 当对一张表进行增删改查的时候，加MDL读锁(共享)
+- 当对表结构进行变更操作的时候，加MDL写锁(排他)
 
 常见的SQL操作时，所添加的元数据锁：
 
@@ -3231,13 +4202,13 @@ performance_schema.data_locks;
 
 应用在 InnoDB存储引擎中。
 
-InnoDB的数据是基于索引组织的，行锁是通过对索引上的索引项加锁来实现的，而不是对记录加的锁。
+InnoDB的数据是基于索引组织的，行锁是通过对索引上的**索引项加锁**来实现的，而不是对记录加的锁。
 
 对于行级锁，主要分为以下三类：
 
 - **行锁（Record Lock）：**
 
-  锁定单个行记录的锁，防止其他事务对此行进行update和delete。在 RC（读已提交）、RR（可重复度）隔离级别下都支持
+  锁定单个行记录的锁，防止其他事务对此行进行update和delete。在 RC（读已提交）、RR（可重复读）隔离级别下都支持
 
   ![image-20230417143516854](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230417143516854.png)
 
@@ -3300,8 +4271,6 @@ performance_schema.data_locks
 > 间隙锁可以共存，一个事务采用的间隙锁不会阻止另一个事务在同一间隙上采用间隙锁。
 >
 > 间隙锁解决了可重复度隔离级别下当前读的幻读问题（快照读的幻读通过MVCC解决）
-
-
 
 ## InnoDB引擎
 
