@@ -654,5 +654,350 @@ mvn install
 
 ### 继承
 
+> 不只是依赖，插件也可以进行继承管理，步骤同依赖，父工程中使用`<pluginsManagement>`管理插件
+
 ![image-20230524172526194](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230524172526194.png)
 
+**作用：**通过继承可以是现在子工程中沿用父工程中的配置
+
+- maven中的继承与java中的继承相似
+
+**制作方式：**
+
+- 在父工程的pom.xml中定义依赖管理：
+
+  用`<dependencyManagement>`标签包裹所有具体依赖
+
+  ```xml
+  <!-- 声明此处进行依赖管理 -->
+  <dependencyManagement>
+      <!-- 具体依赖 -->
+      <dependencies>
+          <!--spring -->
+          <dependency>
+              <groupId>org.springframework</groupId>
+              <artifactId>spring-context</artifactId>
+              <version>5.1.9.RELEASE</version>
+          </dependency>
+      <dependencies>
+  <dependencyManagement>
+  ```
+
+- 在子工程的pom.xml中声明其父工程坐标与对应的pom文件位置
+
+  `<parent>`标签包裹父工程
+
+  ```xml
+  <!-- 定义该工程的父工程 -->
+  <parent>
+      <groupId>com.itheima</groupId>
+      <artifactId>ssm</artifactId>
+      <version>1.0-SNAPSHOT</version>
+      <!-- 填写父工程的pom.xml -->
+      <relativePath>../ssm/pom.xml</relativePath>
+  </parent>
+  
+  <!-- 父工程定义在pom文件最前面，下面是其他定义 -->
+  <!--
+  	<moudleVersion>4.0</moudleVersion>
+  -->
+  ```
+
+- 在子工程中定义依赖关系，无需声明依赖版本，版本参照父工程中依赖的版本
+
+  ```xml
+  <dependencies>
+      <!--spring -->
+      <dependency>
+          <groupId>org.springframework</groupId>
+          <artifactId>spring-context</artifactId>
+      </dependency>
+  </dependencies>
+  ```
+
+- 工程管理：在子工程的pom.xml中：
+
+  ```xml
+  <!-- 子工程应当与父工程隶属同一组织id，可删 -->
+  <goupId>com.chongming</goupId>
+  <artifactId>ssm_pojo</artifactId>
+  <!-- 子工程当尽量与父工程版本保持一致，可删 -->
+  <version>1.0</version>
+  <packaging>jar<package>
+  ```
+
+**继承的资源：**
+
+![image-20230525094943579](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230525094943579.png)
+
+### 异同点
+
+**作用：**
+
+- 聚合用于快速构建项目
+- 继承用于快速配置
+
+**相同点：**
+
+- 聚合和继承的pom.xml文件打包方式均为pom，可以将两种关系制作成同一个pom文件
+- 聚合和继承均属于设计型模块，并无实际的模块内容
+
+**不同点：**
+
+- 聚合是在当前模块中配置关系，聚合可以感知到参与聚合的模块有哪些
+- 继承是在子模块中配置关系，父模块无法感知哪些子模块继承了自己
+
+## 属性
+
+> 聚合和继承让子模块配置统一，但在父版本中：
+>
+> 当maven中配置很复杂的时候，修改一个地方的配置可能要修改很多地方的配置，麻烦且容易出错
+>
+> maven中可以通过属性创建类似java中的变量，其他地方引用即可
+>
+> 属性通过`<propersties>`标签定义，`${}`引用
+>
+> ```shell
+> mvn helpsystem
+> ```
+>
+> **属性类别：**
+>
+> - 自定义属性
+> - 内置属性
+> - Setting属性
+> - Java体系系统属性
+> - 环境变量属性
+
+### 自定义属性
+
+**作用：**等同定义变量，方便统一维护
+
+**定义格式：**
+
+```xml
+<!-- 定义自定义属性 -->
+<properties>
+    <spring.version>5.1.9.RELEASE</spring.version>
+    <junit.version>4.12</junit.version>
+</properties
+```
+
+**调用格式：**
+
+```xml
+<dependency>
+    <groupId>org.springframework</groupId>
+    <artifactId>spring-context</artifactId>
+    <version>${spring.version}</version>
+</dependency
+```
+
+### 内置属性
+
+**作用：**使用maven内置属性，快速配置
+
+**调用格式：**
+
+```java
+${basedir}
+${version} // 当前工程版本，引用其他模块时可以用
+```
+
+**常用属性：**
+
+- `${basedir}`表示项目的根路径，即包含pom.xml文件的目录
+- `${version}`表示项目版本
+- `${project.basedir}`同${basedir}
+- `${project.baseUri}`表示项目文件地址
+- `${maven.build.timestamp}`表示项目构建开始时间
+- `${maven.build.timestamp.format}`表示$`{maven.build.timestamp}`的展示格式，默认值为`yyyyMMdd-HHmm`
+
+### Setting属性
+
+**作用：**使用Maven配置文件setting.xml中的标签属性，用于动态配置
+
+**调用格式：**
+
+```
+${settings.localRepository}
+```
+
+### Java系统属性
+
+**作用：**读取Java系统属性
+
+**调用格式：**
+
+```
+${user.home}
+```
+
+### 环境变量属性
+
+**作用：**读取操作系统中的环境变量属性
+
+**调用格式：**
+
+```
+${env.JAVA_HOME}
+```
+
+## 版本管理
+
+**工程版本区分：**
+
+- **SNAPSHOT（快照版本）**
+  - 项目开发过程中，为方便团队成员合作，解决模块间相互依赖和时时更新的问题，开发者对每个模块进行构建的时候，输出的临时性版本称为快照版本（测试阶段版本）
+  - 快照版本会随着开发的进展不断更新
+- **RELEASAE（发布版本）**
+  - 项目开发到进入阶段里程碑后，向团队外部发布较为稳定的版本，这种版本所对应的构建文件是稳定的，即便进行功能的后续开发，也不会改变当前发布的版本内容，这种版本称为发布版本
+
+**工程版本号约定：**
+
+- **约定规范：**
+  - **主版本：**表示项目重大架构的变更，如：spring5相较于spring4的迭代
+  - **次版本：**表示有较大的功能增加和变化，或者全面系统地修复漏洞
+  - **增量版本：**表示有重大漏洞的修复
+  - **里程碑版本：**表明一个版本的里程碑（版本内部）。这样的版本同下一个正式版本相比，相对来说不是很稳定，有待更多测试
+- **范例：** 5.1.9.RELEASE
+
+## 资源配置
+
+> 资源配置多文件维护：当前项目很多配置文件，不好管理
+>
+> ![image-20230525102431107](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230525102431107.png)
+>
+> 可以在pom属性中统一配置，在其他配置文件中引用pom属性
+
+**作用：**在任意配置文件中加载pom文件中定义的属性
+
+**调用格式：**在需要引用pom属性的配置文件中采用`${}`使用pom属性值
+
+```
+${jdbc.url}
+```
+
+**开启配置文件加载pom属性：** `<resources>`标签
+
+- test包下的配置文件通过`<testResources>`标签
+
+```xml
+<!-- 配置资源文件对应的信息 -->
+<resources>
+    <resource>
+        <!-- 设定配置文件对应的位置目录，支持使用属性动态设定路径  -->
+        <directory>${project.basedir}/src/main/resources</directory>
+        <!-- 开启对配置文件的资源加载过滤 -->
+        <filtering>true</filtering>
+    </resource>
+</resources>
+```
+
+## 多环境开发配置
+
+> **多环境兼容：**
+>
+> ![image-20230525103558464](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230525103558464.png)
+>
+> 通过pom.xml文件中定义属性进行资源配置，当环境切换时需要修改属性，不方便，可以通过多环境开发配置，配置不同环境下加载不同的属性。
+
+**多环境配置：** 在pom.xml文件`<project>`根下
+
+```xml
+<!-- 创建多环境 -->
+<profiles>
+    
+    <!-- 定义具体的环境：生产环境 -->
+    <profile>
+        <!-- 定义环境对应的唯一名称 -->
+        <id>pro_env</id>
+        <!-- 定义环境中专用的属性值 -->
+        <properties>
+            <jdbc.url>jdbc:mysql://127.1.1.1:3306/ssm_db</jdbc.url>
+        </properties>
+        <!-- 设置默认启动(install时默认使用) -->
+        <activation>
+            <activeByDefault>true</activeByDefault>
+        </activation>
+    </profile>
+    
+    <!-- 定义具体的环境：开发环境 -->
+    <profile>
+        <id>dev_env</id>
+        ……
+    </profile>
+    
+</profiles>
+```
+
+**加载指定环境：**
+
+- **作用：**加载指定环境配置
+- **调用格式：**`mvn 指令 -p 环境定义的唯一id`
+- **范例：**`mvn install -p pro_env`
+
+## 跳过测试
+
+> **跳过测试环节的应用场景：**
+>
+> - 整体模块功能未开发
+> - 模块中某个功能未开发完毕
+> - 单个功能更新调试导致其他功能失败
+> - 快速打包
+> - ......
+
+****
+
+**使用命令跳过测试：**
+
+- 命令：`mvn 指令 -D skipTests`
+- 注意事项：执行的指令，生命周期必须包含测试环节
+
+****
+
+**使用IDEA界面跳过测试：**
+
+![image-20230525104715809](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230525104715809.png)
+
+****
+
+**使用配置跳过测试：**
+
+```xml
+<plugin>
+    <artifactId>maven-surefire-plugin</artifactId>
+    <version>2.22.1</version>
+    <configuration>
+        <!-- 设置跳过测试 -->
+        <skipTests>true</skipTests> 
+        <!-- 包含指定的测试用例（即跳过此测试类） -->
+        <includes> 
+            <include>**/User*Test.java</include>
+        </includes>
+        <!-- 排除指定的测试用例（即不跳过此测试类） -->
+        <excludes>
+            <exclude>**/User*TestCase.java</exclude>
+        </excludes>
+    </configuration>
+</plugin
+```
+
+## 私服-Nexus
+
+> 多模块开发，不同的开发者开发不同的模块，项目公共依赖可以去maven中央仓库获取
+>
+> 但是项目里的需要共享的资源不能去中央仓库拿，比如：
+>
+> 开发者A开发dao和pojo，它的dao使用自己的pojo，没有问题
+>
+> 但是开发者B开发service需要开发者A的dao，即开发者A和开发者B在项目中需要进行小范围的资源共享，可以通过搭建私服实现
+>
+> ![image-20230525110016962](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-masterimage-20230525110016962.png)
+>
+> 
+
+### Nexus
+
+- Nexus是Sonatype公司的一款maven私服产品
+- 下载地址：https://help.sonatype.com/repomanager3/download
