@@ -1,3 +1,7 @@
+> Linux系统简介 (biancheng.net)](http://c.biancheng.net/linux_tutorial/10/)
+>
+> 系统：CentOS 7
+
 # 【开关机】
 
 ## 开机
@@ -132,6 +136,56 @@ ls /
 - **/run**：是一个临时文件系统，存储系统启动以来的信息。当系统重启时，这个目录下的文件应该被删掉或清除。
 
 - **/www：存放服务器网站相关的资源，环境**
+
+# 【中文支持】
+
+1. **查看当前系统语言：**
+
+   ```shell
+   echo $LANG
+   ```
+
+2. **查看安装的语言包：**
+
+   查看是否有中文语言包可以在终端输入**locale**命令，如有**zh_cn**表示已经安装了中文语言。
+
+   ```shell
+   [root@chongming ~]# locale
+   
+   LANG=en_US.UTF-8
+   LC_CTYPE="en_US.UTF-8"
+   LC_NUMERIC="en_US.UTF-8"
+   LC_TIME="en_US.UTF-8"
+   LC_COLLATE="en_US.UTF-8"
+   LC_MONETARY="en_US.UTF-8"
+   LC_MESSAGES="en_US.UTF-8"
+   LC_PAPER="en_US.UTF-8"
+   LC_NAME="en_US.UTF-8"
+   LC_ADDRESS="en_US.UTF-8"
+   LC_TELEPHONE="en_US.UTF-8"
+   LC_MEASUREMENT="en_US.UTF-8"
+   LC_IDENTIFICATION="en_US.UTF-8"
+   LC_ALL=
+   ```
+
+3. **安装中文语言包**
+
+   ```shell
+   yum install kde-l10n-Chinese
+   yum reinstall glibc-common
+   ```
+
+4. **修改配置文件**
+
+   1. **临时生效**
+
+      在当前会话状态下，可以输入`export LANG=en.US`来改变语言，修改后即时生效，但如果断开会话，下次登录时又会恢复到之前的语言集。
+
+   2. **永久生效**
+
+      要达到会话断开会也改变语言集，就要修改全局变量了，修改**etc**目录下的**locale.conf**,修改为`LANG="zh_CN.UTF-8"`
+
+      
 
 # 【基本命令】
 
@@ -643,7 +697,7 @@ vim filename # 打开/新建一个文件
 
 按`ESC`键可随时退出底线命令模式。
 
-# 【用户权限】
+# 【用户/权限】
 
 ## root管理员
 
@@ -943,16 +997,56 @@ chmod 770 filename
 
 > Linux按照软件方式：
 >
-> - 下载安装包自行安装
+> - 下载安装包自行安装（rpm命令安装）
 > - 使用Linux命令行的应用商店，采用yum命令安装
 
-## yum命令
+## rpm
 
-> yum：RPM包(rpm为软件安装包)软件管理器，用于自动化安装配置Linux软件，并可以自动解决依赖
+> RPM（Red-hat Package Manager）是底层管理工具，适用于所有环境，在安装软件时只会安装指定的软件，而不会安装依赖性文件，若所安装软件无依赖性文件或依赖性文件被解决，则可以安装，否则会报错。
 >
-> **yum命令需要root权限与联网**
+> **查看已安装的软件：（以mysql为例）**
 >
-> **Ubuntu系统采用apt命令，安装包为dep包**
+> ```shell
+> rpm -qa | grep mysql
+> ```
+>
+> - `-q` 查询软件包是否安装
+> - `-a` 查询系统中所有安装的软件包
+>
+> **查看软件包的详细信息：**
+>
+> ```shell
+> rpm -qi 包名
+> ```
+>
+> ****
+
+|   目标   |                  命令                  |
+| :------: | :------------------------------------: |
+| 安装软件 |           `rpm -ivh` 包全名            |
+| 升级软件 | `rpm -Uvh` 包全名   ` rpm -Fvh` 包全名 |
+| 卸载软件 |             `rpm -e` 包名              |
+
+- `-i` install
+- `-v` verbose 显示详细信息
+- `-h` hash打印 #，显示安装进度
+- `-U` 如果该软件没安装过则直接安装；若安装过则升级至最新版本
+- `-F` 如果该软件没有安装，则不会安装，必须安装有较低版本才能升级
+- `-e` erase 卸载
+
+## yum
+
+> YUM（Yellow dog Updater, Modified）基于 rpm，增加了自动解决依赖关系的方案，是上层管理工具，会自动解决依赖性。yum 在服务器端存有所有的 RPM 包，并将各个包之间的依赖关系记录在文件中，当使用 yum 安装 RPM 包时，yum 会先从服务器端下载包的依赖性文件，通过分析此文件从服务器端一次性下载所有相关的 RPM 包并进行安装
+>
+> **yum命令需要root权限与联网（不使用本地yum源的话）**
+>
+> Ubuntu系统采用apt命令，安装包为dep包
+>
+> **查看已安装的软件：（以mysql为例）**
+>
+> ```shell
+> yum list installed mysql
+> ```
 
 ```shell
 yum [-y] [install | remove | search] 软件名称
@@ -973,6 +1067,172 @@ yum remove wget
 # 搜索
 yum search wget
 ```
+
+**其他命令**
+
+|                      目标                      |                             命令                             |
+| :--------------------------------------------: | :----------------------------------------------------------: |
+|                列出所有软件仓库                |                       yum repolist all                       |
+| 列出仓库中的包（所有、可更新、仓库外、已安装） | yum list 软件包名称<br />all<br />updates<br />extras<br />installed |
+|    查看软件包信息（可更新、仓库外、已安装）    | yum info 软件包名称<br />updates<br />extras<br />installed  |
+|                   重装软件包                   |                   yum reinstall 软件包名称                   |
+|                   升级软件包                   |                    yum update 软件包名称                     |
+|                清除所有仓库缓存                |                        yum clean all                         |
+|                检查可更新软件包                |                       yum check-update                       |
+
+## 部署MySQL
+
+> 由于MySQL并不在CentOS的官方仓库中，所以要配置yum仓库
+>
+> 需要root权限
+
+### 安装
+
+1. **配置仓库：**
+
+   - **5.7版本库：**
+
+     ```shell
+     # 5.7版本仓库
+     # 更新密钥
+     rpm --import https://repo.mysql.com/RPM-GPG-KEY-mysql-2022
+     
+     # 安装Mysql yum库
+     rpm -Uvh http://repo.mysql.com//mysql57-community-release-el7-7.noarch.rpm
+     ```
+
+   - **卸载库**
+
+     ```shell
+     rpm -qa | grep mysql
+     
+     mysql57-community-release-el7-7.noarch
+     
+     rpm -e mysql57-community-release
+     ```
+
+   - **8.0版本库**
+
+     ```shell
+     # 更新密钥
+     rpm --import https://repo.mysql.com/RPM-GPG-KEY-mysql-2022
+     
+     # 安装Mysql8.x版本 yum库
+     rpm -Uvh https://dev.mysql.com/get/mysql80-community-release-el7-2.noarch.rpm
+     ```
+
+2. **使用yum安装MySQL：**
+
+   ```shell
+   yum -y install mysql-community-server
+   ```
+
+3. **安装完成后，启动MySQL并配置开机自启动：**
+
+   ```shell
+   systemctl start mysqld
+   systemctl enable mysqld
+   ```
+
+   > MySQL安装完成后，会自动配置为名称叫做：`mysqld`的服务，可以被systemctl所管理
+
+4. **检查MySQL运行状态：**
+
+   ```shell
+   systemctl status mysqld
+   ```
+
+### 配置
+
+1. **获取MySQL的初始密码：**
+
+   ```shell
+   # 通过grep命令，在/var/log/mysqld.log文件中，过滤temporary password关键字，得到初始密码
+   grep 'temporary password' /var/log/mysqld.log
+   ```
+
+2. **登录MySQL数据库系统：**
+
+   ```shell
+   # 执行
+   mysql -uroot -p
+   # 解释
+   # -u，登陆的用户，MySQL数据库的管理员用户同Linux一样，是root
+   # -p，表示使用密码登陆
+   
+   # 执行完毕后输入刚刚得到的初始密码，即可进入MySQL数据库
+   ```
+
+3. **修改root密码：**
+
+   - 5.7版本：
+
+     ```mysql
+     # 在MySQL控制台内执行
+     ALTER USER 'root'@'localhost' IDENTIFIED BY '密码';	-- 密码需要符合：大于8位，有大写字母，有特殊符号，不能是连续的简单语句如123，abc
+     ```
+
+   - 8.0版本：
+
+     ```mysql
+     ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY '密码';	-- 密码需要符合：大于8位，有大写字母，有特殊符号，不能是连续的简单语句如123，abc
+     ```
+
+4. **[扩展]配置root的简单密码**
+
+   > 此配置仅仅是用于测试环境或学习环境的MySQL，如果是正式使用，请勿设置简单密码
+
+   ```mysql
+   set global validate_password.policy=0;		# 密码安全级别低
+   set global validate_password.length=4;		# 密码长度最低4位即可
+   ```
+
+5. **[扩展]允许root远程登录，并设置远程登录密码**
+
+   > 默认情况下，root用户是不运行远程登录的，只允许在MySQL所在的Linux服务器登陆MySQL系统
+   >
+   > 允许root远程登录会带来安全风险
+
+   - 5.7版本：
+
+     ```mysql
+     # 授权root远程登录
+     grant all privileges on *.* to root@"IP地址" identified by '密码' with grant option;  
+     # IP地址即允许登陆的IP地址，也可以填写%，表示允许任何地址
+     # 密码表示给远程登录独立设置密码，和本地登陆的密码可以不同
+     
+     # 刷新权限，生效
+     flush privileges;
+     ```
+
+   - 8.0版本：
+
+     ```mysql
+     # 第一次设置root远程登录，并配置远程密码使用如下SQL命令
+     # %表示授权任意ip登录
+     create user 'root'@'%' IDENTIFIED WITH mysql_native_password BY '密码!';	-- 密码需要符合：大于8位，有大写字母，有特殊符号，不能是连续的简单语句如123，abc
+     
+     # 后续修改密码使用如下SQL命令
+     ALTER USER 'root'@'%' IDENTIFIED WITH mysql_native_password BY '密码';
+     ```
+
+6. **退出MySQL控制台页面：**
+
+   `exit`命令或者`ctrl+d`快捷键
+
+7. **检查端口：**
+
+   MySQL默认绑定了3306端口，可以通过端口占用检查MySQL的网络状态
+
+   ```shell
+   netstat -anp | grep 3306
+   ```
+
+## 部署Tomcat
+
+> Tomcat建议使用非Root用户安装并启动
+>
+> 可以创建一个用户：tomcat 用以部署
 
 # 【服务】
 
@@ -1450,6 +1710,222 @@ num2 查看次数
 ```
 
 
+
+# 【环境变量】
+
+> 环境变量是操作系统在运行时记录的一些关键性信息，用以辅助系统运行
+>
+> 在Linux系统中执行`env`命令可以查看当前系统的环境变量
+>
+> 环境变量是一种KeyValue型结构
+>
+> ```shell
+> [root@chongming ~]# env
+> XDG_SESSION_ID=3
+> HOSTNAME=chongming
+> TERM=xterm-256color
+> SHELL=/bin/bash
+> HISTSIZE=1000
+> SSH_CLIENT=47.96.60.211 13159 22
+> SSH_TTY=/dev/pts/0
+> USER=root
+> ```
+
+## PATH
+
+无论当前工作目录在哪，都能执行/usr/bin/cd下的命令（命令是可执行程序），就是借助环境变量中PATH项目的值实现。
+
+PATH记录了系统执行任何命令的搜索路径（`:`隔开）：
+
+```shell
+[root@chongming ~]# env | grep PATH
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/root/bin
+```
+
+当执行任何命令，都会安装上述顺序搜索可执行程序并执行
+
+- /usr/local/sbin
+- /usr/local/bin
+- /usr/sbin
+- /usr/bin
+- /root/bin
+
+## $符号
+
+在Linux系统中，`$`符号用于取“变量”的值
+
+环境变量记录的信息，除了操作系统自己使用外，用户也可以调用
+
+**语法：**
+
+```shell
+$环境变量名
+```
+
+**举例：**
+
+- `echo $PATH`
+
+- `echo ${PATH}abc`
+
+  当和其他内容混在一起时，使用`{}`包裹环境变量名
+
+  ```shell
+  [root@chongming ~]# echo 环境变量：${PATH}
+  环境变量：/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/root/bin
+  ```
+
+## 自定义变量
+
+Linus环境变量可以用户自行设置：
+
+- **临时设置：**当前会话生效
+
+  语法：`export 变量名=变量值`
+
+- **永久生效：**
+
+  - 针对当前用户生效，配置在当前用户的`~/.bashrc`文件中
+  - 针对所有用户生效，配置在系统的`/etc/profile`文件中
+
+  通过语法：`source 配置文件`，进行立刻生效；或者重启系统/重新建立会话（登录xshell）生效
+
+## 自定义PATH
+
+环境变量PATH这个项目里面记录了系统执行命令的搜索路径
+
+可以自行添加自己的可执行程序到PATH中，以在命令行中任何目录下执行命令
+
+**演示：**
+
+- 在当前HOME目录内创建shell脚本：`myenv`
+
+  ```shell
+  echo "hello world"
+  ```
+
+- 修改文件为可执行文件：
+
+  ```shell
+  chmod 755 myenv
+  ```
+
+- 修改PATH的值
+
+  临时修改PATH：`export PATH=$PATH:/usr/chongming`
+
+  `PATH=$PATH`后面接`:目录`这样就可以在原目录的基础上添加自己的目录，而非替换
+
+- 在任何目录下执行`myenv`命令，都可以执行：
+
+  ```shell
+  [chongming@chongming usr]$ myenv
+  hello world
+  ```
+
+  
+
+# 【压缩/解压】
+
+## tar命令
+
+> **Liunx和Mac系统通常有两种压缩格式：**
+>
+> - `.tar`
+>
+>   称之为tarball，归档文件，即简单的将文件组装到一个.tar文件夹内，并没有太多文件体积的减少，仅仅是简单的封装
+>
+> - `.gz`
+>
+>   常见为.tar.gz、gzip格式压缩文件，即使用gzip压缩算法将文件压缩到一个文件夹内，可以极大的减少压缩后的体积
+>
+> ```shell
+> # 查询帮助文档
+> tar --help
+> ```
+
+**针对上述两种格式，使用`tar`命令进行压缩和解压缩**
+
+**语法：**
+
+```shell
+tar [-c -v -x -f -z -C] 参数1 参数2 ... 参数N
+```
+
+- -c，创建压缩文件，用于压缩模式
+- -v，显示压缩、解压过程，用于查看进度
+- -x，解压模式
+- -f，要创建的文件，或要解压的文件，-f选项必须在所有选项中位置处于最后一个
+- -z，gzip模式，不适用-z就是普通的tarball格式
+- -C，选择解压的目的地，用于解压模式
+
+**常用组合：**
+
+- **压缩：**
+
+  ```shell
+  tar -[z]cvf test.tar(压缩包名) 待压缩文件1 待压缩文件2 ...
+  ```
+
+  将带压缩文件压缩到test.tar包内，如果使用-z，则采用gzip模式，压缩包以.tar.gz结尾
+
+  - -z，选项如果要使用的话，一般处于选项位第一个
+  - -f，选项如果要使用的话，一般处于选项位最后一个
+
+- **解压：**
+
+  - 解压test.tar至当前目录
+
+    ```shell
+    tar -xvf test.tar
+    ```
+
+  - 解压test.tar至指定目录
+
+    ```shell
+    tar -xvf test.tar -C /tmp/test/testTar
+    ```
+
+  - 以gzip模式解压test.gz.tar至指定目录
+
+    ```shell
+    tar -zxvf test.gz.tar -C /temp/test/testTar
+    ```
+
+  - -f，选项必须位于选项组合中末位
+  - -z，选项建议放在开头
+  - -C，选项必须单独使用，和解压所需的其它参数分开
+
+> Linux下使用tar压缩或解压文件，如果压缩或解压后的文件与同目录下的文件重名，会直接覆盖重名文件。
+>
+> 但是，如果原文件夹下有解压后的重名文件夹没有的文件，这些文件仍然存在。
+>
+> 即重名的文件夹不会直接覆盖，而是比较两个文件夹中重名的文件，只替换这些重名文件。
+
+## zip/unzip命令
+
+> 可以使用zip命令，压缩/解压文件zip压缩包
+>
+> unzip命令解压文件如果有重名文件，不会默认覆盖，需要指定是否覆盖/重命名
+
+**语法：**
+
+- **压缩：**
+
+  ```shell
+  zip -r 压缩包名 待压缩文件1 待压缩文件2 ...
+  ```
+
+  - -r，被压缩的文件包含文件夹时使用
+
+- **解压：**
+
+  ```shell
+  unzip [-o] 待解压包名 [-d 解压到的路径]
+  ```
+
+  - -d，指定要解压去的位置，同tar的-C选项
+  - -o，默认覆盖重名文件
 
 # 【Shell脚本】
 
