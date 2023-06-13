@@ -209,6 +209,8 @@ nothing to commit (create/copy files and use "git add" to track)
 
 ```bash
 git add 文件名
+## 回退文
+git reset HEAD 回退
 ```
 
 - **工作区有文件未添加到暂存区时：**
@@ -274,6 +276,7 @@ git commit -m "日志信息" 文件名
 
 ```bash
 git reflog 查看版本信息
+## 英文状态下按Q退出
 git log 查看版本详细信息
 ```
 
