@@ -209,7 +209,7 @@ nothing to commit (create/copy files and use "git add" to track)
 
 ```bash
 git add 文件名
-## 回退文
+## 回退
 git reset HEAD 回退
 ```
 
