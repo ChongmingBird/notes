@@ -235,13 +235,13 @@ config set maxmemory-policy volatile-lru #设置为volatile-lru
 
 ### 简介
 
-String是Redis最基本的数据类型，它是**二进制安全的**，也就是说Redis的String可以包含任何数据，比如jpg图片或者序列化的对象。
+String 是最基本的 key-value 结构，key 是唯一标识，value 是具体的值，value其实不仅是字符串， 也可以是数字（整数或浮点数），value 最多可以容纳的数据长度是 `512M`。
 
-String类型是Redis最基本的数据类型，一个Redis中字符串value最多可以是512MB
+![img](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-master202306141319613.png)
 
 ### 常用命令
 
-|      操作      |                    命令                    |                             备注                             |
+|      操作      |                   `命令`                   |                             备注                             |
 | :------------: | :----------------------------------------: | :----------------------------------------------------------: |
 |  添加/修改值   |            `set <key> <value>`             |              设置键值，相同的key，value会被覆盖              |
 |     获取值     |                `get <key>`                 |                            获取值                            |
@@ -273,15 +273,118 @@ String类型是Redis最基本的数据类型，一个Redis中字符串value最�
 
 ### 数据结构
 
-String的数据结构为简单的动态字符串，是可以修改的字符串，内部结构上类似于Java的ArrayList，采用预分配冗余空间的方式来减少内存的频繁分配。
+Redis 是使用 C 语言编写。但是 Redis 并没有用 char 来表示字符串，而是使用一种称为 **简单动态字符串（Simple Dynamic Strings，SDS）** 来存储字符串和整型数据。
 
-内部分配的空间capacity一般要高于实际字符串长度len，当字符串长度小于1M时，扩容都是加倍当前空间，如果超过1M，每次只扩容1M，并且最大长度不会超过512M
+**优点：**
+
+- **高效计算字符串长度，时间复杂度O(1)**
+
+  Redis 定义了一个 `len` 属性，专门用于存储字符串的长度，获取字符串的长度操作的时间复杂度为 `O(1)`，典型的空间换时间。
+
+- **可以保存二进制数据，且二进制安全**
+
+  > 二进制安全：通俗的讲，C 语言中，用 “\0” 表示字符串的结束，如果字符串本身就有 “\0” 字符，字符串就会被截断，即非二进制安全；若通过某种机制，保证读写字符串时不损害其内容，则是二进制安全。
+
+  - 在 SDS 中，使用 `len` 属性而不是空字符串来判断字符串是否结束，确保二进制安全。
+  - SDS的所有API都会以处理二进制的方式来处理SDS存放在buf[]数组里的数据，所以SDS不光能存放文本数据，也能保存图片、音频、视频、压缩文件这样的二进制数据
+
+- **Redis 的 SDS API 是安全的，拼接字符串不会造成缓冲区溢出**
+
+  因为 SDS 在拼接字符串之前会检查 SDS 空间是否满足要求，如果空间不够会自动扩容，所以不会导致缓冲区溢出的问题。
+
+### 应用场景
+
+#### 缓存对象
+
+使用 String 来缓存对象有两种方式：
+
+- 直接缓存整个对象的 JSON，命令例子： `SET user:1 '{"name":"xiaolin", "age":18}'`。
+- 采用将 key 进行分离为 user:ID:属性，采用 MSET 存储，用 MGET 获取各属性值，命令例子： `MSET user:1:name xiaolin user:1:age 18 user:2:name xiaomei user:2:age 20`。
+
+#### 常规计数
+
+因为 Redis 处理命令是单线程，所以执行命令的过程是原子的。
+
+因此 String 数据类型适合计数场景，比如计算访问次数、点赞、转发、库存数量等等。
+
+比如计算文章的阅读量：
+
+```shell
+# 初始化文章的阅读量
+> SET aritcle:readcount:1001 0
+OK
+#阅读量+1
+> INCR aritcle:readcount:1001
+(integer) 1
+#阅读量+1
+> INCR aritcle:readcount:1001
+(integer) 2
+#阅读量+1
+> INCR aritcle:readcount:1001
+(integer) 3
+# 获取对应文章的阅读量
+> GET aritcle:readcount:1001
+"3"
+```
+
+#### 分布式锁
+
+SET 命令有个 NX 参数可以实现「key不存在才插入」，可以用它来实现分布式锁：
+
+- 如果 key 不存在，则显示插入成功，可以用来表示加锁成功；
+- 如果 key 存在，则会显示插入失败，可以用来表示加锁失败。
+
+一般而言，还会对分布式锁加上过期时间，分布式锁的命令如下：
+
+```shell
+SET lock_key unique_value NX PX 10000
+```
+
+- lock_key 就是 key 键；
+- unique_value 是客户端生成的唯一的标识；
+- NX 代表只在 lock_key 不存在时，才对 lock_key 进行设置操作；
+- PX 10000 表示设置 lock_key 的过期时间为 10s，这是为了避免客户端发生异常而无法释放锁。
+
+而解锁的过程就是将 lock_key 键删除，但不能乱删，要保证执行操作的客户端就是加锁的客户端。所以，解锁的时候，我们要先判断锁的 unique_value 是否为加锁客户端，是的话，才将 lock_key 键删除。
+
+可以看到，解锁是有两个操作，这时就需要 Lua 脚本来保证解锁的原子性，因为 Redis 在执行 Lua 脚本时，可以以原子性的方式执行，保证了锁释放操作的原子性。
+
+```lua
+// 释放锁时，先比较 unique_value 是否相等，避免锁的误释放
+if redis.call("get",KEYS[1]) == ARGV[1] then
+    return redis.call("del",KEYS[1])
+else
+    return 0
+end
+```
+
+这样一来，就通过使用 SET 命令和 Lua 脚本在 Redis 单节点上完成了分布式锁的加锁和解锁。
+
+#### 共享 Session 信息
+
+通常我们在开发后台管理系统时，会使用 Session 来保存用户的会话(登录)状态，这些 Session 信息会被保存在服务器端，但这只适用于单系统应用，如果是分布式系统此模式将不再适用。
+
+例如用户一的 Session 信息被存储在服务器一，但第二次访问时用户一被分配到服务器二，这个时候服务器并没有用户一的 Session 信息，就会出现需要重复登录的问题，问题在于分布式系统每次会把请求随机分配到不同的服务器。
+
+分布式系统单独存储 Session 流程图：
+
+![img](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-master202306141110712.png)
+
+因此，我们需要借助 Redis 对这些 Session 信息进行统一的存储和管理，这样无论请求发送到那台服务器，服务器都会去同一个 Redis 获取相关的 Session 信息，这样就解决了分布式系统下 Session 存储的问题。
+
+分布式系统使用同一个 Redis 存储 Session 流程图：
+
+![img](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-master202306141110729.png)
+
+
 
 ## List
 
 ### 简介
 
-Redis列表是简单的字符串列表，按照插入顺序排序，可以添加一个元素到列表的头部（左边）或尾部（右边）。
+List 列表是简单的字符串列表，**按照插入顺序排序**，可以从头部或尾部向 List 列表添加元素。
+
+列表的最大长度为 `2^32 - 1`，也即每个列表支持超过 `40 亿`个元素。
 
 它的底层实际上是个双向链表，对两端的操作性能很高，通过索引下标的操作中间的节点性能会较差。
 
@@ -294,10 +397,6 @@ Redis列表是简单的字符串列表，按照插入顺序排序，可以添加
 |     获取数据     |       `lrange <key> <start> <stop>`       | 获取start到stop(从左到右)的数据<br />`lrange key 0 -1`获取所有数据 |
 | 按照索引获取数据 |          `lindex <key> <index>`           |                按照索引下标获得元素(从左到右)                |
 |   获得列表长度   |               `llen <key>`                |                                                              |
-|                  |                                           |                                                              |
-|                  |                                           |                                                              |
-|                  |                                           |                                                              |
-|                  |                                           |                                                              |
 
 - **规定时间内获取并移除数据：**
 
@@ -322,29 +421,81 @@ Redis列表是简单的字符串列表，按照插入顺序排序，可以添加
 
 ### 数据结构
 
-List的数据结构为快速链表quickList
+List 类型的底层数据结构是由**双向链表或压缩列表**实现的：
 
-首先列表元素较少的情况下会使用一块连续的内存存储，这个结构是ziplist，也即是压缩列表。
+- 如果列表的元素个数小于 `512` 个（默认值，可由 `list-max-ziplist-entries` 配置），列表每个元素的值都小于 `64` 字节（默认值，可由 `list-max-ziplist-value` 配置），Redis 会使用**压缩列表**作为 List 类型的底层数据结构；
+- 如果列表的元素不满足上面的条件，Redis 会使用**双向链表**作为 List 类型的底层数据结构；
 
-它将所有的元素紧挨着一起存储，分配的是一块连续的内存，当数据量比较多的时候才会改成quicklist
+**在 Redis 3.2 版本之后，List 数据类型底层数据结构就只由 quicklist 实现了，替代了双向链表和压缩列表**。
 
-因为普通的链表需要的附加指针空间太大，会比较浪费空间。
+也就是将多个ziplist使用双向指针串起来，这样既满足了快速的插入和删除性能，又不会出现太大的空间冗余。
 
-所以Redis将链表和ziplist结合，也就是将多个ziplist使用双向指针串起来，这样既满足了快速的插入和删除性能，又不会出现太大的空间冗余。
+### 应用场景
+
+#### 消息队列
+
+> - 消息保序：使用 LPUSH + RPOP；
+> - 阻塞读取：使用 BRPOP；
+> - 重复消息处理：生产者自行实现全局唯一 ID；
+> - 消息的可靠性：使用 BRPOPLPUSH
+
+消息队列在存取消息时，必须要满足三个需求，分别是：
+
+- **消息保序**
+
+  List 本身就是按先进先出的顺序对数据进行存取的，所以，如果使用 List 作为消息队列保存消息的话，就已经能满足消息保序的需求了。
+
+  List 可以使用 LPUSH + RPOP （或者反过来，RPUSH+LPOP）命令实现消息队列。
+
+  - 生产者使用 `LPUSH key value[value...]` 将消息插入到队列的头部，如果 key 不存在则会创建一个空的队列再插入消息。
+  - 消费者使用 `RPOP key` 依次读取队列的消息，先进先出。
+
+  **潜在风险：**生产者生产消息不会通知消费者，消费者需要循环调用RPOP浪费性能；
+
+  **解决方法：**Redis提供了 BRPOP 命令。BRPOP命令也称为阻塞式读取，客户端在没有读到队列数据时，自动阻塞，直到有新的数据写入队列，再开始读取新数据。
+
+  ![img](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-master202306141115203.png)
+
+- **处理重复的消息**
+
+  消费者要实现重复消息的判断，需要 2 个方面的要求：
+
+  - 每个消息都有一个全局的 ID。
+
+  - 消费者要记录已经处理过的消息的 ID。
+
+    当收到一条消息后，消费者程序就可以对比收到的消息 ID 和记录的已处理过的消息 ID，来判断当前收到的消息有没有经过处理。如果已经处理过，那么，消费者程序就不再进行处理了。
+
+  **List 并不会为每个消息生成 ID 号，所以需要自行为每个消息生成一个全局唯一ID**，生成之后，我们在用 LPUSH 命令把消息插入 List 时，需要在消息中包含这个全局唯一ID。
+
+- **保证消息可靠性**
+
+  当消费者程序从 List 中读取一条消息后，List 就不会再留存这条消息了。所以，如果消费者程序在处理消息的过程出现了故障或宕机，就会导致消息没有处理完成，那么，消费者程序再次启动后，就没法再次从 List 中读取消息了。
+
+  为了留存消息，List 类型提供了 `BRPOPLPUSH` 命令，这个命令的**作用是让消费者程序从一个 List 中读取消息，同时，Redis 会把这个消息再插入到另一个 List（可以叫作备份 List）留存**。
+
+  
+
+**List作为消息队列的缺陷：**不支持多个消费者消费同一条消息
 
 ## Set
 
 ### 简介
 
-Redis set对外提供的功能与list类似是一个列表的功能，特殊之处在于set是可以**自动排重**的。
+**Redis set 是一个无序且唯一的键值集合。**
 
 当需要存储一个列表数据，又不希望出现重复数据时，set是一个很好的选择，并且set提供了判断某个成员是否在一个set集合内的重要接口，这个也是list所不能提供的。
 
-Redis的Set是string类型的无序集合。它底层其实是一个value为null的hash表，所以添加，删除，查找的**复杂度都是O(1)**。
+一个集合最多可以存储 `2^32-1` 个元素。概念和数学中个的集合基本类似，可以交集，并集，差集等等，所以 Set 类型除了支持集合内的增删改查，同时还支持多个集合取交集、并集、差集。
 
-一个算法，随着数据的增加，执行时间的长短，如果是O(1)，数据增加，查找数据的时间不变
+Set 类型和 List 类型的区别如下：
+
+- List 可以存储重复元素，Set 只能存储非重复元素；
+- List 是按照元素的先后顺序存储元素的，而 Set 则是无序方式存储元素的。
 
 ### 常用命令
+
+**Set常用操作：**
 
 - `sadd <key> <value1> <value2> .....`
 
@@ -374,27 +525,181 @@ Redis的Set是string类型的无序集合。它底层其实是一个value为null
 
   随机从该集合中取出n个值。不会从集合中删除 。
 
-- `smove <source> <destination> <value>`
+**Set运算操作：**
 
-  把集合中一个值<value>从一个集合<source>移动到另一个集合<destination>
+- 交集运算
 
-- `sinter <key1> <key2>`
+  ```shell
+  # 交集运算
+  SINTER key [key ...]
+  # 将交集结果存入新集合destination中
+  SINTERSTORE destination key [key ...]
+  ```
 
-  返回两个集合的交集元素。
+- 并集运算
 
-- `sunion <key1> <key2>`
+  ```shell
+  # 并集运算
+  SUNION key [key ...]
+  # 将并集结果存入新集合destination中
+  SUNIONSTORE destination key [key ...]
+  ```
 
-  返回两个集合的并集元素。
+- 差集运算
 
-- `sdiff <key1> <key2>`
-
-  返回两个集合的**差集**元素(key1中的，不包含key2中的)
+  ```shell
+  # 差集运算
+  SDIFF key [key ...]
+  # 将差集结果存入新集合destination中
+  SDIFFSTORE destination key [key ...]
+  ```
 
 ### 数据结构
 
-Set数据结构是dict字典，字典是用哈希表实现的。
+Set 类型的底层数据结构是由**哈希表或整数集合**实现的：
 
-Java中HashSet的内部实现使用的是HashMap，只不过所有的value都指向同一个对象。Redis的set结构也是一样，它的内部也使用hash结构，所有的value都指向同一个内部值。
+- 如果集合中的元素都是整数且元素个数小于 `512` （默认值，`set-maxintset-entries`配置）个，Redis 会使用**整数集合**作为 Set 类型的底层数据结构；
+- 如果集合中的元素不满足上面条件，则 Redis 使用**哈希表**作为 Set 类型的底层数据结构。
+
+### 应用场景
+
+集合的主要几个特性，无序、不可重复、支持并交差等操作。
+
+因此 Set 类型比较适合用来数据去重和保障数据的唯一性，还可以用来统计多个集合的交集、错集和并集等，当存储的数据是无序并且需要去重的情况下，比较适合使用集合类型进行存储。
+
+**潜在风险：**
+
+**Set 的差集、并集和交集的计算复杂度较高，在数据量较大的情况下，如果直接执行这些计算，会导致 Redis 实例阻塞**。
+
+在主从集群中，为了避免主库因为 Set 做聚合计算（交集、差集、并集）时导致主库被阻塞，我们可以选择一个从库完成聚合统计，或者把数据返回给客户端，由客户端来完成聚合统计
+
+#### 点赞
+
+Set 类型可以保证一个用户只能点一个赞
+
+举例：key是文章id，value是用户id
+
+- `uid:1` 、`uid:2`、`uid:3` 三个用户分别对 article:1 文章点赞
+
+```shell
+SADD article:1 uid:1
+SADD article:1 uid:2
+SADD article:1 uid:3
+```
+
+- `uid:1` 取消了对 article:1 文章点赞
+
+```shell
+SREM article:1 uid:1
+```
+
+- 获取 article:1 文章所有点赞用户
+
+```shell
+SMEMBERS article:1
+```
+
+- 获取 article:1 文章的点赞用户数量
+
+```
+SCARD article:1
+```
+
+- 判断用户 `uid:1` 是否对文章 article:1 点赞
+
+```
+SISMEMBER article:1 uid:1
+```
+
+#### 共同关注
+
+Set 类型支持交集运算，所以可以用来计算共同关注的好友、公众号等。
+
+举例：key 是用户id，value是已关注的公众号的id。
+
+- `uid:1` 用户关注公众号 id 为 5、6、7、8、9
+
+  `uid:2` 用户关注公众号 id 为 7、8、9、10、11
+
+  ```shell
+  SADD uid:1 5 6 7 8 9
+  SADD uid:1 7 8 9 10 11
+  ```
+
+- `uid:1` 和 `uid:2` 共同关注的公众号
+
+  ```shell
+  SINTER uid:1 uid:2
+  # 运行结果
+  1) "7"
+  2) "8"
+  3) "9"
+  ```
+
+- 给 `uid:2` 推荐 `uid:1` 关注的公众号
+
+  ```shell
+  SDIFF uid:1 uid:2
+  # 运行结果
+  1) "5"
+  2) "6"
+  ```
+
+- 验证某个公众号是否同时被 `uid:1` 或 `uid:2` 关注
+
+  ```shell
+  SISMEMBER uid:1 5
+  (integer) 1 # 返回0，说明关注了
+  
+  SISMEMBER uid:2 5
+  (integer) 0 # 返回0，说明没关注
+  ```
+
+#### 抽奖活动
+
+存储某活动中中奖的用户名 ，Set 类型因为有去重功能，可以保证同一个用户不会中奖两次。
+
+key（`lucky`）为抽奖活动名，value为员工名称
+
+- 把所有员工名称放入抽奖箱 
+
+  ```shell
+  SADD lucky Tom Jerry John Sean Marry Lindy Sary Mark
+  ```
+
+- 如果允许重复中奖，可以使用 SRANDMEMBER 命令
+
+  ```shell
+  # 抽取 1 个一等奖：
+  SRANDMEMBER lucky 1
+  1) "Tom"
+  # 抽取 2 个二等奖：
+  SRANDMEMBER lucky 2
+  1) "Mark"
+  2) "Jerry"
+  # 抽取 3 个三等奖：
+  SRANDMEMBER lucky 3
+  1) "Sary"
+  2) "Tom"
+  3) "Jerry"
+  ```
+
+- 如果不允许重复中奖，可以使用 SPOP 命令
+
+  ```shell
+  # 抽取一等奖1个
+  SPOP lucky 1
+  1) "Sary"
+  # 抽取二等奖2个
+  SPOP lucky 2
+  1) "Jerry"
+  2) "Mark"
+  # 抽取三等奖3个
+  SPOP lucky 3
+  1) "John"
+  2) "Sean"
+  3) "Lindy"
+  ```
 
 ## Hash
 
@@ -402,9 +707,11 @@ Java中HashSet的内部实现使用的是HashMap，只不过所有的value都指
 
 Redis hash 是一个键值对集合。
 
-Redis hash是一个string类型的field和value的映射表，hash特别适合用于存储对象。
+Redis hash是一个string类型的field和value的映射表，特别适合用于存储对象。
 
 类似Java里面的`Map<String,Object>`，一个存储空间(hash)保存多个键值对<filed,value> 
+
+使用hash值获取对应的key-value集合，根据key获取其中的value
 
 用户ID为查找的key，存储的value用户对象包含姓名，年龄，生日等信息，如果用普通的key/value结构来存储：
 
@@ -438,68 +745,585 @@ Redis hash是一个string类型的field和value的映射表，hash特别适合�
 
 - `hsetnx <key> <field> <value>`
 
-  将哈希表 key 中的域 field 的值设置为 value ，当且仅当域 field 不存在 .
+  将哈希表 key 中的域 field 的值设置为 value ，当且仅当域 field 不存在
 
 ### 数据结构
 
 Hash类型对应的数据结构是两种：ziplist（压缩列表），hashtable（哈希表）。
 
-当field-value长度较短且个数较少时，使用ziplist，否则使用hashtable。
+- 如果哈希类型元素个数小于 `512` 个（默认值，可由 `hash-max-ziplist-entries` 配置），所有值小于 `64` 字节（默认值，可由 `hash-max-ziplist-value` 配置）的话，Redis 会使用**压缩列表**作为 Hash 类型的底层数据结构；
+- 如果哈希类型元素不满足上面条件，Redis 会使用**哈希表**作为 Hash 类型的 底层数据结构。
+
+**在 Redis 7.0 中，压缩列表数据结构已经废弃了，交由 listpack 数据结构来实现了**。
+
+### 应用场景
+
+**缓存对象：**
+
+一般对象用 String + Json 存储，对象中某些频繁变化的属性可以考虑抽出来用 Hash 类型存储。
+
+比如购物车，用户id为key，商品id为field，商品数量为value
+
+```shell
+## 添加商品：
+HSET cart:{用户id} {商品id} 1
+## 添加数量
+HINCRBY cart:{用户id} {商品id} 1
+## 商品总数：
+HLEN cart:{用户id}
+## 删除商品：
+HDEL cart:{用户id} {商品id}
+## 获取购物车所有商品：
+HGETALL cart:{用户id}
+```
 
 ## Zset
 
 ### 简介
 
-Redis有序集合zset与普通集合set非常相似，是一个没有重复元素的字符串集合。
+Zset 类型（有序集合类型）相比于 Set 类型多了一个排序属性 score（分值），对于有序集合 ZSet 来说，每个存储元素相当于有两个值组成的，一个是有序集合的元素值，一个是排序值。
 
-不同之处是有序集合的每个成员都关联了一个**评分（score)**,这个评分（score）被用来按照从最低分到最高分的方式排序集合中的成员。集合的成员是唯一的，但是评分可以是重复了 。
-
-因为元素是有序的, 所以你也可以很快的根据评分（score）或者次序（position）来获取一个范围的元素。
-
-访问有序集合的中间元素也是非常快的,因此你能够使用有序集合作为一个没有重复成员的智能列表。
+有序集合保留了集合不能有重复成员的特性（分值可以重复），但不同的是，有序集合中的元素可以排序。
 
 ### 常用命令
 
-- `zadd <key> <score1> <value1> <score2> <value2> …`
+- `ZADD key score member [[score member]...]`
 
   将一个或多个 member 元素及其 score 值加入到有序集 key 当中。
 
-- `zrange <key> <start> <stop> [WITHSCORES]`
+- `ZREM key member [member...]`
 
-  返回有序集 key 中，下标在<start><stop>之间的元素
+  往有序集合key中删除元素
 
-  带WITHSCORES，可以让分数一起和值返回到结果集。
+- `ZSCORE key member`
 
-- `zrangebyscore <key> minmax [withscores] [limit offset count]`
+  返回有序集合key中元素member的分值
 
-  返回有序集 key 中，所有 score 值介于 min 和 max 之间(包括等于 min 或 max )的成员。有序集成员按 score 值递增(从小到大)次序排列。
+- `ZCARD key`
 
-  可选的 `LIMIT` 参数指定返回结果的数量及区间(limit 3,4代表返回三到四条数据）
+  返回有序集合key中元素个数
 
-- `zrevrangebyscore key maxmin [withscores] [limit offset count]`
+- `ZINCRBY key increment member`
 
-  同上，改为从大到小排列。
+  为有序集合key中元素member的分值加上increment
 
-- `zincrby <key> <increment> <value>`
+- ```shell
+  # 正序获取有序集合key从start下标到stop下标的元素
+  ZRANGE key start stop [WITHSCORES]
+  # 倒序获取有序集合key从start下标到stop下标的元素
+  ZREVRANGE key start stop [WITHSCORES]
+  ```
 
-  为元素的score加上增量
+- ```shell
+  # 返回有序集合中指定分数区间内的成员，分数由低到高排序。
+  ZRANGEBYSCORE key min max [WITHSCORES] [LIMIT offset count]
+  ```
 
-- `zrem <key> <value>`删除该集合下，指定值的元素
+- ```shell
+  # 返回指定成员区间内的成员，按字典正序排列, 分数必须相同。
+  ZRANGEBYLEX key min max [LIMIT offset count]
+  # 返回指定成员区间内的成员，按字典倒序排列, 分数必须相同
+  ZREVRANGEBYLEX key max min [LIMIT offset count]
+  ```
 
-- `zcount <key> <min> <max>`统计该集合，分数区间内的元素个数
+**ZSet运算操作：**相比Set类型，ZSet类型不支持差集运算
 
-- `zrank <key> <value>`返回该值在集合中的排名，从0开始。
+```shell
+# 并集计算(相同元素分值相加)，numberkeys:一共多少个key;WEIGHTS:每个key对应的分值乘积
+ZUNIONSTORE destkey numberkeys key [key...] 
+
+# 交集计算(相同元素分值相加)，numberkeys一共多少个key，WEIGHTS每个key对应的分值乘积
+ZINTERSTORE destkey numberkeys key [key...]
+```
 
 ### 数据结构
 
 SortedSet(zset)是Redis提供的一个非常特别的数据结构，一方面它等价于Java的数据结构Map<String, Double>
 ，可以给每一个元素value赋予一个权重score，另一方面它又类似于TreeSet，内部的元素会按照权重score进行排序，可以得到每个元素的名次，还可以通过score的范围来获取元素的列表。
 
-zset底层使用了两个数据结构：
+Zset 类型的底层数据结构是由**压缩列表或跳表**实现的：
 
-（1）hash，hash的作用就是关联元素value和权重score，保障元素value的唯一性，可以通过元素value找到相应的score值。
+- 如果有序集合的元素个数小于 `128` 个，并且每个元素的值小于 `64` 字节时，Redis 会使用**压缩列表**作为 Zset 类型的底层数据结构；
+- 如果有序集合的元素不满足上面的条件，Redis 会使用**跳表**作为 Zset 类型的底层数据结构；
 
-（2）跳跃表，跳跃表的目的在于给元素value排序，根据score的范围获取元素列表。
+# 新数据类型
+
+## BitMap
+
+### 简介
+
+Bitmap，即位图，是一串连续的二进制数组（0和1），可以通过偏移量（offset）定位元素。BitMap通过最小的单位bit来进行`0|1`的设置，表示某个元素的值或者状态，时间复杂度为O(1)。
+
+由于 bit 是计算机中最小的单位，使用它进行储存将非常节省空间，特别适合一些数据量大且使用**二值统计的场景**。
+
+![image-20210813105348126](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-master202306141406829.png)
+
+### 常用命令
+
+**bitmap 基本操作：**
+
+```shell
+# 设置值，其中value只能是 0 和 1
+SETBIT key offset value
+# 获取值
+GETBIT key offset
+# 获取指定范围内值为 1 的个数
+# start 和 end 以字节为单位
+BITCOUNT key start end
+```
+
+**bitmap 运算操作：**
+
+```shell
+# BitMap间的运算
+# operations 位移操作符，枚举值
+  AND 与运算 &
+  OR 或运算 |
+  XOR 异或 ^
+  NOT 取反 ~
+# result 计算的结果，会存储在该key中
+# key1 … keyn 参与运算的key，可以有多个，空格分割，not运算只能一个key
+# 当 BITOP 处理不同长度的字符串时，较短的那个字符串所缺少的部分会被看作0。返回值是保存到 destkey 的字符串的长度（以字节byte为单位），和输入 key 中最长的字符串长度相等。
+
+BITOP [operations] [result] [key1] [keyn…]
+
+# 返回指定key中第一次出现指定value(0/1)的位置
+BITPOS [key] [value]
+```
+
+### 数据结构
+
+Bitmap 本身是用 String 类型作为底层数据结构实现的一种统计二值状态的数据类型。
+
+String 类型是会保存为二进制的字节数组，所以，Redis 就把字节数组的每个 bit 位利用起来，用来表示一个元素的二值状态。可以把 Bitmap 看作是一个 bit 数组。
+
+### 应用场景
+
+Bitmap 类型非常适合二值状态统计的场景，这里的二值状态就是指集合元素的取值就只有 0 和 1 两种，在记录海量数据时，Bitmap 能够有效地节省内存空间。
+
+签到统计时，每个用户一天的签到用 1 个 bit 位就能表示，一个月（假设是 31 天）的签到情况用 31 个 bit 位，而一年的签到也只需要用 365 个 bit 位，根本不用太复杂的集合类型。
+
+**统计签到情况**
+
+假设要统计 ID 100 的用户在 2022 年 6 月份的签到情况，就可以按照下面的步骤进行操作。
+
+1. 记录该用户6月3号已签到
+
+   `SETBIT uid:sign:100:202206 2 1`
+
+2. 检查该用户 6 月 3 日是否签到。
+
+   `GETBIT uid:sign:100:202206 2 `
+
+3. 统计该用户在 6 月份的签到次数
+
+   `BITCOUNT uid:sign:100:202206`
+
+**统计这个月的首次打卡时间：**
+
+> Redis 提供了 `BITPOS key bitValue [start] [end]`指令，返回数据表示 Bitmap 中第一个值为 `bitValue` 的 offset 位置。
+>
+> 在默认情况下， 命令将检测整个位图， 用户可以通过可选的 `start` 参数和 `end` 参数指定要检测的范围。
+
+获取 userID = 100 在 2022 年 6 月份**首次打卡**日期：
+
+`BITPOS uid:sign:100:202206 1`
+
+因为 offset 从 0 开始的，所以我们需要将返回的 value + 1
+
+
+
+**判断用户登录态**
+
+> Bitmap 提供了 `GETBIT、SETBIT` 操作，通过一个偏移值 offset 对 bit 数组的 offset 位置的 bit 位进行读写操作，需要注意的是 offset 从 0 开始。
+>
+> 只需要一个 key = login_status 表示存储用户登陆状态集合数据， 将用户 ID 作为 offset，在线就设置为 1，下线设置 0。通过 `GETBIT`判断对应的用户是否在线。 
+>
+> 5000 万用户只需要 6MB 的空间。
+
+1. 执行以下命令，表示用户已登录
+
+   `SETBIT login_status 10086 1`
+
+2. 检查用户是否登录，返回值1表示已登录
+
+   `GETBIT login_status 10086`
+
+3. 登出，将offset对应的value设置成0
+
+   `SETBIT login_status 10086 0`
+
+
+
+**连续签到用户总数：**
+
+> 如何统计出这连续 7 天连续打卡用户总数呢？
+>
+> - 以每天的日期为key，userId为offerset，若是打卡则将offset位置的bit设置成1
+>
+>   连续七天，则这样的Bitmap要有7个
+>
+> - 相同userId对应相同的offset，对这7个集合进行进行【与】运算，并将结果保存到一个新的Bitmap中
+>
+>   如果新集合中对应offset位置的bit为1，则说明该offset对应的用户连续七天打卡
+>
+> - 通过 `BITCOUNT` 统计 bit = 1 的个数便得到了连续打卡 7 天的用户总数
+>
+> Redis 提供了 `BITOP operation destkey key [key ...]`这个指令用于对一个或者多个 key 的 Bitmap 进行位元操作。
+>
+> - `operation` 可以是 `and`、`OR`、`NOT`、`XOR`。
+>
+>   当 BITOP 处理不同长度的字符串时，较短的那个字符串所缺少的部分会被看作 `0` 。空的 `key` 也被看作是包含 `0` 的字符串序列
+
+假设要统计 3 天连续打卡的用户数，则是将三个 bitmap 进行 AND 操作，并将结果保存到 destmap 中，接着对 destmap 执行 BITCOUNT 统计，如下命令：
+
+```shell
+# 与操作
+BITOP AND destmap bitmap:01 bitmap:02 bitmap:03
+# 统计 bit 位 =  1 的个数
+BITCOUNT destmap
+```
+
+即使一天产生一个亿的数据，Bitmap占用的内存也不大，大约占12MB的内存（10^8/8/1024/1024），7天的Bitmap的内存开销约为84MB。
+
+同时最好给Bitmap设置过期时间，让Redis删除过期的打卡数据，节省内存。
+
+## HyperLogLog
+
+### 简介
+
+Redis HyperLogLog 是 Redis 2.8.9 版本新增的数据类型，是一种用于「统计基数」的数据集合类型，基数统计就是指统计一个集合中不重复的元素个数。但要注意，HyperLogLog 是统计规则是基于概率完成的，不是非常准确，标准误算率是 0.81%。
+
+所以，简单来说 HyperLogLog **提供不精确的去重计数**。
+
+HyperLogLog 的优点是，在输入元素的数量或者体积非常非常大时，计算基数所需的内存空间总是固定的、并且是很小的。
+
+在 Redis 里面，**每个 HyperLogLog 键只需要花费 12 KB 内存，就可以计算接近 `2^64` 个不同元素的基数**，和元素越多就越耗费内存的 Set 和 Hash 类型相比，HyperLogLog 就非常节省空间。
+
+> **什么是基数?**
+>
+> 比如数据集 {1, 3, 5, 7, 5, 7, 8}， 那么这个数据集的基数集为 {1, 3, 5 ,7, 8}。
+
+基数估计就是在误差可接受的范围内，快速计算基数。
+
+### 常用命令
+
+```shell
+# 添加指定元素到 HyperLogLog 中
+PFADD key element [element ...]
+
+# 返回给定 HyperLogLog 的基数估算值。
+PFCOUNT key [key ...]
+
+# 将多个 HyperLogLog 合并为一个 HyperLogLog
+PFMERGE destkey sourcekey [sourcekey ...]
+```
+
+### 数据结构
+
+费脑子：
+
+https://en.wikipedia.org/wiki/HyperLogLog
+
+### 应用场景
+
+**百万级网页UV计数：**
+
+Redis HyperLogLog 优势在于只需要花费 12 KB 内存，就可以计算接近 2^64 个元素的基数，和元素越多就越耗费内存的 Set 和 Hash 类型相比，HyperLogLog 就非常节省空间。
+
+所以，非常适合统计百万级以上的网页 UV 的场景。
+
+- 在统计 UV 时，可以用 PFADD 命令（用于向 HyperLogLog 中添加新元素）把访问页面的每个用户都添加到 HyperLogLog 中。
+
+  `PFADD page1:uv user1 user2 user3 user4 user5`
+
+- 接下来，就可以用 PFCOUNT 命令直接获得 page1 的 UV 值了，这个命令的作用就是返回 HyperLogLog 的统计结果。
+
+  `PFCOUNT page1:uv`
+
+## Geo
+
+### 简介
+
+Redis GEO 是 Redis 3.2 版本新增的数据类型，主要用于存储地理位置信息，并对存储的信息进行操作。
+
+该类型，就是元素的2维坐标，在地图上就是经纬度。redis基于该类型，提供了经纬度设置，查询，范围查询，距离查询，经纬度Hash等常见操作。
+
+### 常用命令
+
+```shell
+# 存储指定的地理空间位置，可以将一个或多个经度(longitude)、纬度(latitude)、位置名称(member)添加到指定的 key 中。
+GEOADD key longitude latitude member [longitude latitude member ...]
+
+# 从给定的 key 里返回所有指定名称(member)的位置（经度和纬度），不存在的返回 nil。
+GEOPOS key member [member ...]
+
+# 返回两个给定位置之间的距离。
+GEODIST key member1 member2 [m|km|ft|mi]
+
+# 根据用户给定的经纬度坐标来获取指定范围内的地理位置集合。
+GEORADIUS key longitude latitude radius m|km|ft|mi [WITHCOORD] [WITHDIST] [WITHHASH] [COUNT count] [ASC|DESC] [STORE key] [STOREDIST key]
+```
+
+### 数据结构
+
+GEO 本身并没有设计新的底层数据结构，而是直接使用了 Sorted Set 集合类型。
+
+GEO 类型使用 GeoHash 编码方法实现了经纬度到 Sorted Set 中元素权重分数的转换，这其中的两个关键机制就是「对二维地图做区间划分」和「对区间进行编码」。一组经纬度落在某个区间后，就用区间的编码值来表示，并把编码值作为 Sorted Set 元素的权重分数。
+
+这样一来，就可以把经纬度保存到 Sorted Set 中，利用 Sorted Set 提供的“按权重进行有序范围查找”的特性，实现 LBS 服务中频繁使用的“搜索附近”的需求。
+
+### 应用场景
+
+以滴滴叫车场景为例
+
+假设车辆 ID 是 33，经纬度位置是（116.034579，39.030452），可以用一个 GEO 集合保存所有车辆的经纬度，集合 key 是 cars:locations。
+
+执行下面的这个命令，就可以把 ID 号为 33 的车辆的当前经纬度位置存入 GEO 集合中：
+
+```shell
+GEOADD cars:locations 116.034579 39.030452 33
+```
+
+当用户想要寻找自己附近的网约车时，LBS 应用就可以使用 GEORADIUS 命令。
+
+例如，LBS 应用执行下面的命令时，Redis 会根据输入的用户的经纬度信息（116.054579，39.030452 ），查找以这个经纬度为中心的 5 公里内的车辆信息，并返回给 LBS 应用。
+
+```shell
+GEORADIUS cars:locations 116.054579 39.030
+```
+
+## Stream
+
+### 简介
+
+Redis Stream 是 Redis 5.0 版本新增加的数据类型，Redis 专门为消息队列设计的数据类型。
+
+在 Redis 5.0 Stream 没出来之前，消息队列的实现方式都有着各自的缺陷，例如：
+
+- 发布订阅模式，不能持久化也就无法可靠的保存消息，并且对于离线重连的客户端有不能读取历史消息的缺陷；
+- List 实现消息队列的方式不能重复消费，一个消息消费完就会被删除，而且生产者需要自行实现全局唯一 ID。
+
+基于以上问题，Redis 5.0 便推出了 Stream 类型也是此版本最重要的功能，用于完美地实现消息队列，它支持消息的持久化、支持自动生成全局唯一 ID、支持 ack 确认消息的模式、支持消费组模式等，让消息队列更加的稳定和可靠。
+
+### 常用命令
+
+Stream 消息队列操作命令：
+
+- `XADD`：插入消息，保证有序，可以自动生成全局唯一 ID；
+- `XLEN` ：查询消息长度；
+- `XREAD`：用于读取消息，可以按 ID 读取数据；
+- `XDEL` ： 根据消息 ID 删除消息；
+- `DEL` ：删除整个 Stream；
+- `XRANGE` ：读取区间消息
+- `XREADGROUP`：按消费组形式读取消息；
+- `XPENDING` 和 `XACK`：
+  - `XPENDING` 命令可以用来查询每个消费组内所有消费者「已读取、但尚未确认」的消息；
+  - `XACK` 命令用于向消息队列确认消息处理已完成；
+
+### 应用场景
+
+> - 消息保序：XADD/XREAD
+> - 阻塞读取：XREAD block
+> - 重复消息处理：Stream 在使用 XADD 命令，会自动生成全局唯一 ID；
+> - 消息可靠性：内部使用 PENDING List 自动保存消息，使用 XPENDING 命令查看消费组已经读取但是未被确认的消息，消费者使用 XACK 确认消息；
+> - 支持消费组形式消费数据
+
+#### 消息队列
+
+> Stream 的基础方法，使用 xadd 存入消息和 xread 循环阻塞读取消息的方式可以实现简易版的消息队列，交互流程如下图所示：
+>
+> ![img](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-master202306141451162.png)
+
+- 生产者通过 XADD 命令插入一条消息：
+
+  ```shell
+  # * 表示让 Redis 为插入的数据自动生成一个全局唯一的 ID
+  # 往名称为 mymq 的消息队列中插入一条消息，消息的键是 name，值是 xiaolin
+  > XADD mymq * name xiaolin
+  "1654254953808-0"
+  ```
+
+  插入成功后会返回全局唯一的 ID："1654254953808-0"。
+
+  消息的全局唯一 ID 由两部分组成：
+
+  - 第一部分“1654254953808”是数据插入时，以毫秒为单位计算的当前服务器时间；
+  - 第二部分表示插入消息在当前毫秒内的消息序号，这是从 0 开始编号的。例如，“1654254953808-0”就表示在“1654254953808”毫秒内的第 1 条消息
+
+- 消费者通过 XREAD 命令从消息队列中读取消息时，可以指定一个消息 ID，并从这个消息 ID 的下一条消息开始进行读取（注意是输入消息 ID 的下一条信息开始读取，不是查询输入ID的消息）。
+
+  ```shell
+  # 从 ID 号为 1654254953807-0 的消息开始，读取后续的所有消息（示例中一共 1 条）。
+  > XREAD STREAMS mymq 1654254953807-0
+  1) 1) "mymq"
+     2) 1) 1) "1654254953808-0"
+           2) 1) "name"
+              2) "xiaolin"
+  ```
+
+  如果**想要实现阻塞读（当没有数据时，阻塞住），可以调用 XRAED 时设定 BLOCK 配置项**，实现类似于 BRPOP 的阻塞读取操作。
+
+  比如，下面这命令，设置了 BLOCK 10000 的配置项，10000 的单位是毫秒，表明 XREAD 在读取最新消息时，如果没有消息到来，XREAD 将阻塞 10000 毫秒（即 10 秒），然后再返回。
+
+  ```shell
+  # 命令最后的“$”符号表示读取最新的消息
+  > XREAD BLOCK 10000 STREAMS mymq $
+  (nil)
+  (10.00s)
+  ```
+
+  
+
+#### 消费组消费
+
+Stream 可以以使用 XGROUP 创建消费组，创建消费组之后，Stream 可以使用 XREADGROUP 命令让消费组内的消费者读取消息。
+
+- 创建两个消费组，这两个消费组消费的消息队列是 mymq，都指定从第一条消息开始读取：
+
+  ```shell
+  # 创建一个名为 group1 的消费组，0-0 表示从第一条消息开始读取。
+  > XGROUP CREATE mymq group1 0-0
+  OK
+  # 创建一个名为 group2 的消费组，0-0 表示从第一条消息开始读取。
+  > XGROUP CREATE mymq group2 0-0
+  OK
+  ```
+
+- 消费组 group1 内的消费者 consumer1 从 mymq 消息队列中读取所有消息的命令如下：
+
+  ```shell
+  # 命令最后的参数“>”，表示从第一条尚未被消费的消息开始读取。
+  > XREADGROUP GROUP group1 consumer1 STREAMS mymq >
+  1) 1) "mymq"
+     2) 1) 1) "1654254953808-0"
+           2) 1) "name"
+              2) "xiaolin"
+  ```
+
+  > **消息队列中的消息一旦被消费组里的一个消费者读取了，就不能再被该消费组内的其他消费者读取了，即同一个消费组里的消费者不能消费同一条消息**。
+  >
+  > 但是，**不同消费组的消费者可以消费同一条消息（但是有前提条件，创建消息组的时候，不同消费组指定了相同位置开始读取消息）**。
+
+- 消费组 group2 内的消费者 consumer1 消费信息
+
+  ```
+  > XREADGROUP GROUP group2 consumer1 STREAMS mymq >
+  1) 1) "mymq"
+     2) 1) 1) "1654254953808-0"
+           2) 1) "name"
+              2) "xiaolin"
+  ```
+
+> 使用消费组的目的是让组内的多个消费者共同分担读取消息，所以，通常会让每个消费者读取部分消息，从而实现消息读取负载在多个消费者间是均衡分布的。
+
+- 执行下列命令，让 group2 中的 consumer1、2、3 各自读取一条消息
+
+  ```shell
+  # 让 group2 中的 consumer1 从 mymq 消息队列中消费一条消息
+  > XREADGROUP GROUP group2 consumer1 COUNT 1 STREAMS mymq >
+  1) 1) "mymq"
+     2) 1) 1) "1654254953808-0"
+           2) 1) "name"
+              2) "xiaolin"
+  # 让 group2 中的 consumer2 从 mymq 消息队列中消费一条消息
+  > XREADGROUP GROUP group2 consumer2 COUNT 1 STREAMS mymq >
+  1) 1) "mymq"
+     2) 1) 1) "1654256265584-0"
+           2) 1) "name"
+              2) "xiaolincoding"
+  # 让 group2 中的 consumer3 从 mymq 消息队列中消费一条消息
+  > XREADGROUP GROUP group2 consumer3 COUNT 1 STREAMS mymq >
+  1) 1) "mymq"
+     2) 1) 1) "1654256271337-0"
+           2) 1) "name"
+              2) "Tom"
+  ```
+
+#### 宕机恢复
+
+> 基于 Stream 实现的消息队列，如何保证消费者在发生故障或宕机再次重启后，仍然可以读取未处理完的消息？
+
+Streams 会自动使用内部队列（也称为 PENDING List）留存消费组里每个消费者读取的消息，直到消费者使用 XACK 命令通知 Streams“消息已经处理完成”。
+
+消费确认增加了消息的可靠性，一般在业务处理完成之后，需要执行 XACK 命令确认消息已经被消费完成，整个流程的执行如下图所示：
+
+![img](https://cdn.xiaolincoding.com/gh/xiaolincoder/redis/%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/%E6%B6%88%E6%81%AF%E7%A1%AE%E8%AE%A4.png)
+
+如果消费者没有成功处理消息，它就不会给 Streams 发送 XACK 命令，消息仍然会留存。此时，**消费者可以在重启后，用 XPENDING 命令查看已读取、但尚未确认处理完成的消息**。
+
+# 底层数据结构
+
+![img](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-master202306151330770.jpeg)
+
+## 全局哈希表
+
+为了实现从键到值的快速访问，Redis使用了一个哈希表来保存所有键值对，从而在查找时实现O(1)的时间复杂度。
+
+**哈希桶中的元素保存的不是值本身，而是指向具体值的指针。**也就是说，不管值是String还是其他集合类型，哈希桶中的元素都是指向他们的指针。
+
+哈希冲突采用拉链法解决。
+
+![img](https://shuaidi-picture-1257337429.cos.ap-guangzhou.myqcloud.com/img/1cc8eaed5d1ca4e3cdbaa5a3d48dfb5f.jpg)
+
+## RedisObject
+
+Redis的数据类型有很多，并且不同的数据类型有相同的元数据要记录（比如最后一次访问的时间、被引用的次数等），Redis会用一个RedisObject结构体来统一记录一些元数据，同时指向实际数据。
+
+一个RedisObject包含了8字节的元数据和一个8字节的指针域，指针域指向具体数据类型的实际数据所在。
+
+- **元数据**
+
+  - 值对象的数据类型
+  - 值对象的底层编码类型
+  - 最后一次使用此对象的时间等信息
+  - 对象的引用次数
+
+- **指针域**
+
+  数据存放的实际地址
+
+Redis 是 key-value 存储系统，其中key类型一般为字符串，value 类型则为RedisObject对象
+
+Redis数据类型就是采用不同的数据类型，组织value，也就是组织RedisObject对象。
+
+## SDS
+
+在String数据类型中，采用了SDS（简单动态字符串）的方式保存数据
+
+SDS包括三部分：
+
+- **buf：**字节数组，保存实际数据。Redis会自动在数组最后加一个"\0"，表示字节数组的结束（额外占用1个字节的开销）
+- **len：**占用4个字节，表示buf的已用长度
+- **alloc：**占4个字节，表示buf的实际分配长度，一般大于len
+
+![img](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-master202306151315856.jpeg)
+
+- **int编码**：64位有符号整数，此时数据直接保存在RedisObject的指针域中。
+- **embstr编码**：当保存的是字符串数据，并且字符串小于等于44字节时，RedisObject中的元数据、指针域和SDS是保存在一块连续的内存区域。
+- **raw编码**：当字符串大于44字节时，Redis会给SDS分配独立的空间，并用指针指向SDS结构。
+
+## ZipList
+
+**压缩列表（Ziplist）**
+
+![img](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-master202306151343855.jpeg)
+
+- **表头：**
+
+  - zlbytes：列表长度
+
+  - zltail：列表尾的偏移量
+
+  - zllen：列表中的entry个数
+
+- **Entry：**
+
+  - 
+
+- **表尾：zlend，表示列表结束**
+
+
 
 # 发布和订阅
 
@@ -537,342 +1361,7 @@ publish channel1 hello
 
 注：发布的消息没有持久化，如果在订阅的客户端收不到hello，只能收到订阅后发布的消息
 
-# 三大新数据类型
 
-## Bitmaps
-
-### 简介
-
-现代计算机用二进制（位）作为信息的基础单位，1个字节等于8位，例如“abc”字符串是由3个字节组成， 但实际在计算机存储时将其用二进制表示， “abc”分别对应的ASCII码分别是97、 98、 99， 对应的二进制分别是01100001、
-01100010和01100011，如下图：
-
-![image-20210813105325369](https://gitee.com/dong-dameng/images/raw/master/img/20210813105325.png)
-
-合理地使用操作位能够有效地提高内存使用率和开发效率。
-
-Redis提供了Bitmaps这个“数据类型”可以实现对位的操作：
-
-（1） Bitmaps本身不是一种数据类型，实际上它就是字符串（key-value），但是它可以对字符串的位进行操作。
-
-（2） Bitmaps单独提供了一套命令， 所以在Redis中使用Bitmaps和使用字符串的方法不太相同。 可以把Bitmaps想象成一个以位为单位的数组， 数组的每个单元只能存储0和1， 数组的下标在Bitmaps中叫做偏移量。
-
-![image-20210813105348126](https://gitee.com/dong-dameng/images/raw/master/img/20210813105348.png)
-
-### 命令
-
-#### setbit
-
-（1）格式
-
-`setbit <key> <offset> <value>`
-
-设置Bitmaps中某个偏移量的值（0或1）
-
-![image-20210813113702746](https://gitee.com/dong-dameng/images/raw/master/img/20210813113702.png)
-
-offset:偏移量从0开始
-
-（2）实例
-
-每个独立用户是否访问过网站存放在Bitmaps中，将访问的用户记做1，没有访问的用户记做0，用偏移量作为用户的id。
-
-设置键的第offset个位的值（从0算起），假设现在有20个用户，userid=1，6，11，15，19的用户对网站进行了访问， 那么当前Bitmaps初始化结果如图
-
-![image-20210813113217896](https://gitee.com/dong-dameng/images/raw/master/img/20210813113217.png)
-
-`unique:users:20201106`: 代表2020-11-06这天的独立访问用户的Bitmaps
-
-![image-20210813113231591](https://gitee.com/dong-dameng/images/raw/master/img/20210813113231.png)
-
-**PS:**
-
- 很多应用的用户id以一个指定数字（例如10000） 开头， 直接将用户id和Bitmaps的偏移量对应势必会造成一定的浪费， 通常的做法是每次做setbit操作时将用户id减去这个指定数字。
-
- 在第一次初始化Bitmaps时， 假如偏移量非常大， 那么整个初始化过程执行会比较慢， 可能会造成Redis的阻塞。
-
-#### getbit
-
-（1）格式
-
-`getbit <key> <offset>`
-
-获取Bitmaps中某个偏移量的值
-
-​            ![image-20210813113431215](https://gitee.com/dong-dameng/images/raw/master/img/20210813113431.png)
-
-获取键的第offset位的值（从0开始算）
-
-（2）实例
-
-获取id=8的用户是否在2020-11-06这天访问过， 返回0说明没有访问过：
-
-![image-20210813113456976](https://gitee.com/dong-dameng/images/raw/master/img/20210813113457.png)
-
-**PS：因为100根本不存在，所以也是返回0**
-
-#### bitcount
-
-统计**字符串**被设置为1的bit数。一般情况下，给定的整个字符串都会被进行计数，通过指定额外的 start 或 end 参数，可以让计数只在特定的位上进行。start 和 end 参数的设置，都可以使用负数值：比如 -1
-表示最后一个位，而 -2 表示倒数第二个位，start、end 是指bit组的字节的下标数，二者皆包含。
-
-（1）格式
-
-`bitcount <key> [start end]`
-
-统计字符串从start字节到end字节比特值为1的数量
-
-![image-20210813114103340](https://gitee.com/dong-dameng/images/raw/master/img/20210813114103.png)
-
-（2）实例
-
-计算2022-11-06这天的独立访问用户数量
-
-![image-20210813114130035](https://gitee.com/dong-dameng/images/raw/master/img/20210813114130.png)
-
-start和end代表起始和结束字节数， 下面操作计算用户id在第1个字节到第3个字节之间的独立访问用户数,对应的用户id是11,15,19。
-
-![image-20210813114224370](https://gitee.com/dong-dameng/images/raw/master/img/20210813114224.png)
-
-#### bitop
-
-（1）格式
-
-`bitop and(or/not/xor) <destkey> [key…]`
-
-​                   ![image-20210813144821222](https://gitee.com/dong-dameng/images/raw/master/img/20210813144821.png)
-
-bitop是一个复合操作， 它可以做多个Bitmaps的and(交集)、or(并集)、not(非) 、xor（异或）操作并将结果保存在destkey中。
-
-（2）实例
-
-2020-11-04 日访问网站的userid=1,2,5,9。
-
-```shell
-setbit unique:users:20201104 1 1
-setbit unique:users:20201104 2 1
-setbit unique:users:20201104 5 1
-setbit unique:users:20201104 9 1
-```
-
-2020-11-03 日访问网站的userid=0,1,4,9。
-
-```
-setbit unique:users:20201103 0 1
-setbit unique:users:20201103 1 1
-setbit unique:users:20201103 4 1
-setbit unique:users:20201103 9 1
-```
-
-计算出两天都访问过网站的用户数量
-
-`bitop and unique:users:and:20201104_03 unique:users:20201103 unique:users:20201104`
-
-![image-20210813144927980](https://gitee.com/dong-dameng/images/raw/master/img/20210813144928.png)
-
-翻译翻译：求`unique:users:20201103`和`unique:users:20201104`的交集，结果放入`unique:users:and:20201104_03`中
-
-![image-20210813144726352](https://gitee.com/dong-dameng/images/raw/master/img/20210813144726.png)
-
-计算出任意一天都访问过网站的用户数量（例如月活跃就是类似这种)，可以使用or求并集。
-
-### Bitmaps和Set对比
-
-假设网站有1亿用户， 每天独立访问的用户有5千万， 如果每天用集合类型和Bitmaps分别存储活跃用户可以得到表
-
-**set和bitmaps存储一天活跃用户对比**
-
-| 数据类型 | 每个用户id占用空间 | 需要存储的用户量 |       全部内存量       |
-| :------: | :----------------: | :--------------: | :--------------------: |
-| 集合类型 |        64位        |     50000000     | 64位*50000000 = 400MB  |
-| Bitmaps  |        1位         |    100000000     | 1位*100000000 = 12.5MB |
-
-很明显， 这种情况下使用Bitmaps能节省很多的内存空间， 尤其是随着时间推移节省的内存还是非常可观的
-
-**set和bitmaps存储独立用户对比**
-
-| 数据类型 |  一天  | 一个月 | 一年  |
-| :------: | :----: | :----: | :---: |
-| 集合类型 | 400MB  |  12GB  | 144GB |
-| Bitmaps  | 12.5MB | 375MB  | 4.5GB |
-
-但Bitmaps并不是万金油， 假如该网站每天的独立访问用户很少， 例如只有10万（大量的僵尸用户） ， 那么两者的对比如下表所示， 很显然， 这时候使用Bitmaps就不太合适了， 因为基本上大部分位都是0。
-
-**set和Bitmaps存储一天活跃用户对比（独立用户比较少）**
-
-| 数据类型 | 每个userid占用空间 | 需要存储的用户量 |       全部内存量       |
-| :------: | :----------------: | :--------------: | :--------------------: |
-| 集合类型 |        64位        |      100000      |  64位*100000 = 800KB   |
-| Bitmaps  |        1位         |    100000000     | 1位*100000000 = 12.5MB |
-
-## HyperLogLog
-
-### 简介
-
-在工作当中，我们经常会遇到与统计相关的功能需求，比如统计网站PV（PageView页面访问量）,可以使用Redis的incr、incrby轻松实现。
-
-但像UV（UniqueVisitor，独立访客）、独立IP数、搜索记录数等需要去重和计数的问题如何解决？这种求集合中不重复元素个数的问题称为基数问题。
-
-解决基数问题有很多种方案：
-
-（1）数据存储在MySQL表中，使用distinct count计算不重复个数
-
-（2）使用Redis提供的hash、set、bitmaps等数据结构来处理
-
-以上的方案结果精确，但随着数据不断增加，导致占用空间越来越大，对于非常大的数据集是不切实际的。
-
-能否能够降低一定的精度来平衡存储空间？Redis推出了HyperLogLog
-
-Redis HyperLogLog 是用来做基数统计的算法，**HyperLogLog 的优点是：**
-
-在输入元素的数量或者体积非常非常大时，计算基数所需的空间总是固定的、并且是很小的。
-
-在 Redis 里面，每个 HyperLogLog 键只需要花费 12 KB 内存，就可以计算接近 2^64 个不同元素的基数。这和计算基数时，元素越多耗费内存就越多的集合形成鲜明对比。
-
-但是，因为 HyperLogLog 只会根据输入元素来计算基数，而不会储存输入元素本身，所以 HyperLogLog 不能像集合那样，返回输入的各个元素。
-
-**什么是基数?**
-
-比如数据集 {1, 3, 5, 7, 5, 7, 8}， 那么这个数据集的基数集为 {1, 3, 5 ,7, 8}。
-
-基数估计就是在误差可接受的范围内，快速计算基数。
-
-### 命令
-
-#### pfadd
-
-（1）格式
-
-`pfadd <key> <element> [element ...]`  添加指定元素到 HyperLogLog 中
-
-​             ![image-20210813151459291](https://gitee.com/dong-dameng/images/raw/master/img/20210813151459.png)
-
-（2）实例
-
-![image-20210813151543354](https://gitee.com/dong-dameng/images/raw/master/img/20210813151543.png)
-
-将所有元素添加到指定HyperLogLog数据结构中。如果执行命令后HLL估计的近似基数发生变化，则返回1，否则返回0。
-
-#### pfcount
-
-（1）格式
-
-`pfcount <key> [key ...]`
-
-计算HLL的近似基数，可以计算多个HLL，比如用HLL存储每天的UV，计算一周的UV可以使用7天的UV合并计算即可
-
-​      ![image-20210813151741952](https://gitee.com/dong-dameng/images/raw/master/img/20210813151741.png)
-
-（2）实例
-
-![image-20210813151810529](https://gitee.com/dong-dameng/images/raw/master/img/20210813151810.png)
-
-#### pfmerge
-
-（1）格式
-
-`pfmerge <destkey> <sourcekey> [sourcekey ...]`
-
-将一个或多个HLL合并后的结果存储在另一个HLL中，比如每月活跃用户可以使用每天的活跃用户来合并计算可得
-
-![](https://gitee.com/dong-dameng/images/raw/master/img/20210813151700.png)
-
-（2）实例
-
-![image-20210813151921080](https://gitee.com/dong-dameng/images/raw/master/img/20210813151921.png)
-
-## Geospatial
-
-### 简介
-
-Redis 3.2 中增加了对GEO类型的支持。GEO，Geographic，地理信息的缩写。该类型，就是元素的2维坐标，在地图上就是经纬度。redis基于该类型，提供了经纬度设置，查询，范围查询，距离查询，经纬度Hash等常见操作。
-
-### 命令
-
-#### geoadd
-
-（1）格式
-
-`geoadd <key> <longitude> <latitude> <member> [longitude latitude member...]`
-
-添加地理位置（经度，纬度，名称）
-
-![image-20210813152218993](https://gitee.com/dong-dameng/images/raw/master/img/20210813152219.png)
-
-（2）实例
-
-`geoadd china:city 121.47 31.23 shanghai`
-
-`geoadd china:city 106.50 29.53 chongqing 114.05 22.52 shenzhen 116.38 39.90 beijing`
-
-![image-20210813152304988](https://gitee.com/dong-dameng/images/raw/master/img/20210813152305.png)
-
-两极无法直接添加，一般会下载城市数据，直接通过 Java 程序一次性导入。
-
-有效的经度从 -180 度到 180 度。有效的纬度从 -85.05112878 度到 85.05112878 度。
-
-当坐标位置超出指定范围时，该命令将会返回一个错误。
-
-已经添加的数据，是无法再次往里面添加的。
-
-#### geopos
-
-（1）格式
-
-`geopos <key> <member> [member...]`
-
-获得指定地区的坐标值
-
-![image-20210813152425760](https://gitee.com/dong-dameng/images/raw/master/img/20210813152425.png)
-
-（2）实例
-
-![image-20210813152450479](https://gitee.com/dong-dameng/images/raw/master/img/20210813152450.png)
-
-#### geodist
-
-（1）格式
-
-`geodist <key> <member1> <member2> [m|km|ft|mi ]`
-
-获取两个位置之间的直线距离
-
-![image-20210813152546282](https://gitee.com/dong-dameng/images/raw/master/img/20210813152546.png)
-
-（2）实例
-
-获取两个位置之间的直线距离
-
-![image-20210813152606143](https://gitee.com/dong-dameng/images/raw/master/img/20210813152606.png)
-
-单位：
-
-- m 表示单位为米[默认值]。
-- km 表示单位为千米。
-- mi 表示单位为英里。
-- ft 表示单位为英尺。
-
-如果用户没有显式地指定单位参数， 那么 GEODIST 默认使用米作为单位
-
-#### georadius
-
-（1）格式
-
-`georadius <key> <longitude> <latitude> radius m|km|ft|mi`
-
-以给定的经纬度为中心，找出某一半径内的元素
-
-![image-20210813152657738](https://gitee.com/dong-dameng/images/raw/master/img/20210813152657.png)
-
-key后面的四个参数分别代表：
-
-- 经度
-- 纬度
-- 距离
-- 单位
-
-（2）实例
-
-![image-20210813152747798](https://gitee.com/dong-dameng/images/raw/master/img/20210813152747.png)
 
 # Jedis
 
@@ -880,9 +1369,9 @@ key后面的四个参数分别代表：
 
 ```xml
 <dependency>
-<groupId>redis.clients</groupId>
-<artifactId>jedis</artifactId>
-<version>3.2.0</version>
+    <groupId>redis.clients</groupId>
+    <artifactId>jedis</artifactId>
+    <version>3.2.0</version>
 </dependency>
 ```
 
@@ -1047,15 +1536,15 @@ public class JedisDemo {
 ```xml
 <!-- redis -->
 <dependency>
-<groupId>org.springframework.boot</groupId>
-<artifactId>spring-boot-starter-data-redis</artifactId>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-data-redis</artifactId>
 </dependency>
 
 <!-- spring2.X集成redis所需common-pool2-->
 <dependency>
-<groupId>org.apache.commons</groupId>
-<artifactId>commons-pool2</artifactId>
-<version>2.6.0</version>
+    <groupId>org.apache.commons</groupId>
+    <artifactId>commons-pool2</artifactId>
+    <version>2.6.0</version>
 </dependency>
 ```
 
@@ -1170,8 +1659,28 @@ public class RedisTestController {
         return name;
     }
 }
-
 ```
+
+# 持久化
+
+> **什么是持久化**
+>
+> 利用永久性存储介质将数据进行保存，在特定的时间将保存的数据进行恢复的工作机制称为持久化。
+>
+> **为什么要持久化**
+>
+> 防止数据的意外丢失，确保数据安全性
+>
+> **持久化过程保存什么**
+>
+> - 将当前数据状态进行保存，快照形式，存储数据结果，存储格式简单，关注点在数据（RDB）
+> - 将数据的操作过程进行保存，日志形式，存储操作过程，存储格式复杂，关注点在数据的操作过程(AOF)
+
+## RDB
+
+
+
+
 
 # 事务和锁
 
