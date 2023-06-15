@@ -291,8 +291,6 @@ mvn install
 
 <img src="https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-master/image-20210726192430371.png" alt="image-20210726192430371" style="zoom:80%;" />
 
- 
-
 ## 依赖管理
 
 > Maven仓库：https://mvnrepository.com
@@ -980,7 +978,7 @@ ${jdbc.url}
             <exclude>**/User*TestCase.java</exclude>
         </excludes>
     </configuration>
-</plugin
+</plugin>
 ```
 
 ## 私服-Nexus
