@@ -1259,3 +1259,512 @@ MyBatis提供了mybatis-spring.jar专门用于两大框架的整合。
   }
   ```
 
+### 引入第三方命名空间
+
+以 Spring 的 context 命名空间为例子
+
+**需求：加载外部proerties文件，将键值对存储在Spring容器中**
+
+```properties
+jdbc.url=jdbc:mysql://localhost:3306/mybatis
+jdbc.username=root
+jdbc.password=root
+```
+
+引入context命名空间，在使用context命名空间的标签，使用SpEL表达式在xml或注解中根据key获得value
+
+```xml
+<beans xmlns="http://www.springframework.org/schema/beans"
+       <!-- context -->
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans 
+                           http://www.springframework.org/schema/beans/spring-beans.xsd
+                            <!-- context -->
+                           http://www.springframework.org/schema/context 
+                           http://www.springframework.org/schema/context/spring-context.xsd">
+    <context:property-placeholder location="classpath:jdbc.properties" />
+    <bean id="dataSource" class="com.alibaba.druid.pool.DruidDataSource">
+        <property name="url" value="${jdbc.url}"></property>
+        <property name="username" value="${jdbc.username}"></property>
+        <property name="password" value="${jdbc.password}"></property>
+    </bean>
+<beans>
+```
+
+其实，加载的properties文件中的属性最终通过Spring解析后会被存储到了Spring容器的environment中去，不仅自己定义的属性会进行存储，Spring也会把环境相关的一些属性进行存储
+
+![image-20230626153259062](https://chongming-images.oss-cn-hangzhou.aliyuncs.com/images-master202306261532254.png)
+
+
+
+# 【注解开发】
+
+基本Bean注解，主要是使用注解的方式替代原有xml的标签及其标签属性的配置
+
+```xml
+<bean id="" name="" class="" scope="" lazy-init="" init-method="" destroy-method="" 
+      abstract="" autowire="" factory-bean="" factory-method=""></bean>
+```
+
+使用@Component等注解配置完毕后，要配置组件扫描才能使注解生效
+
+- xml配置组件扫描
+
+  ```xml
+  <context:component-scan base-package="com.chongmiong"/>
+  ```
+
+- 配置类配置组件扫描
+
+  ```java
+  @Configuration
+  @ComponentScan("com.chongming")
+  public class AppConfig { }
+  ```
+
+  
+
+## @Component
+
+使用@Component注解替代`<bean>`标签
+
+|    注解    |         xml配置         |                           描述                           |
+| :--------: | :---------------------: | :------------------------------------------------------: |
+| @Component | `<bean id="" class="">` | 被该注解标识的类，会在指定扫描范围内被Spring加载并实例化 |
+
+可以通过@Component注解的value属性指定当前Bean实例的beanName，也可以省略不写，不写的情况下为当前类名首字母小写
+
+```java
+// 获取方式：applicationContext.getBean("userDao");
+@Component("userDao")
+public class UserDaoImpl implements UserDao {}
+// 获取方式：applicationContext.getBean("userDaoImpl");
+@Component
+public class UserDaoImpl implements UserDao {}
+```
+
+使用注解对需要被Spring实例化的Bean进行标注，但是需要告诉Spring去哪找这些Bean，要配置组件扫描路径
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/xmlSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="
+                           http://www.springframework.org/schema/beans 
+                           http://www.springframework.org/schema/beans/spring-beans.xsd
+                           http://www.springframework.org/schema/context 
+                           http://www.springframework.org/schema/context/spring-context.xsd
+                           ">
+    <!-- 告知Spring框架去chongming包及其子包下去扫描使用了注解的类 -->
+    <context:component-scan base-package="com.chongming"/>
+</beans>
+```
+
+## Bean属性注解
+
+Spring通过注解方式去配置的之前`<bean>`标签中的属性
+
+例如：@Scope
+
+|      注解      |          xml配置           |                             描述                             |
+| :------------: | :------------------------: | :----------------------------------------------------------: |
+|     @Scope     |     `<bean scope="">`      | 在类上或使用了@Bean标注的方法上，标注Bean的作用范围，取值为singleton或prototype |
+|     @Lazy      |   `<bean lazy-init="">`    | 在类上或使用了@Bean标注的方法上，标注Bean是否延迟加载，取值为true和false |
+| @PostConstruct |  `<bean init-method="">`   |          在方法上使用，标注Bean的实例化后执行的方法          |
+|  @PreDestroy   | `<bean destroy-method="">` |            在方法上使用，标注Bean的销毁前执行方法            |
+
+## 分层开发注解
+
+由于JavaEE开发是分层的，为了每层Bean标识的注解语义化更加明确，@Component又衍生出如下三个注解：
+
+|    注解     |        描述         |
+| :---------: | :-----------------: |
+| @Repository |   在DAO层类上使用   |
+|  @Service   | 在Service层类上使用 |
+| @Controller |   在Web层类上使用   |
+
+## 依赖注入注解
+
+Bean依赖注入的注解，主要是使用注解的方式替代xml的`<property>`标签完成属性的注入操作
+
+```xml
+<bean id="" class="">
+    <property name="" value=""/>
+    <property name="" ref=""/>
+</bean>
+```
+
+Spring主要提供如下注解，用于在Bean内部进行属性注入的：
+
+| 属性注入注解 |                          描述                          |
+| :----------: | :----------------------------------------------------: |
+|    @Value    |          使用在字段或方法上，用于注入普通数据          |
+|  @Autowired  | 使用在字段或方法上，用于根据类型（byType）注入引用数据 |
+|  @Qualifier  |    使用在字段或方法上，结合@Autowired，根据名称注入    |
+|  @Resources  |         使用在字段或方法上，根据类型或名称注入         |
+
+#### @Value
+
+- 注入普通属性
+
+  ```java
+  @Value("chongming")
+  private String username;
+  @Value("chongming")
+  public void setUsername(String username){
+      System.out.println(username);
+  }
+  ```
+
+- 注入properties文件中的属性
+
+  ```xml
+  <context:property-placeholder location="classpath:jdbc.properties"/>
+  ```
+
+  ```java
+  @Value("${jdbc.username}")
+  private String username;
+  @Value("${jdbc.username}")
+  public void setUsername(String username){
+      System.out.println(username);
+  }
+  ```
+
+### @Autowired
+
+@Autowired注解，用于根据类型进行注入
+
+```java
+//使用在属性上直接注入
+@Autowired
+private UserDao userDao;
+//使用在方法上直接注入
+@Autowired
+public void setUserDao(UserDao userDao){
+    System.out.println(userDao);
+}
+```
+
+- 如果容器中存在唯一的匹配类型的Bean，它将被注入
+- 如果按类型匹配无法找到唯一的Bean，Spring容器会检查注解元素（字段、方法参数等）的名称，尝试查找与该名称匹配的Bean并注入
+- 如果没有，则会报错
+
+### @Resource
+
+@Resource注解是Java EE提供的注解，也可以用于Spring框架中。
+
+ps：@Resource注解存在与 javax.annotation 包中，Spring对其进行了解析
+
+@Resource注解可以用于字段、方法、构造函数和参数上，用于注入相应的Bean实例。@Resource注解的注入规则如下：
+
+- 默认按名称匹配
+
+  ```java
+  // 按照myService去容器中匹配
+  @Resource
+  private MyService myService;
+  
+  // 显示指定按照myServiceBean去容器中匹配
+  @Resource(name = "myServiceBean")
+  private MyService myService;
+  ```
+
+- 按照类型匹配
+
+  如果@Resource注解指定了type属性，它会根据指定的类型来匹配要注入的Bean。
+
+  ```java
+  @Resource(type = MyService.class)
+  private MyService myService;
+  ```
+
+### @Qualifier
+
+@Qualifier配合@Autowired可以完成根据名称注入Bean实例，使用@Qualifier指定名称
+
+```java
+@Autowired
+@Qualifier("userDao2")
+private UserDao userDao;
+
+@Autowired
+@Qualifier("userDao2")
+public void setUserDao(UserDao userDao){
+    System.out.println(userDao);
+}
+```
+
+## 非自定义Bean
+
+非自定义Bean不能像自定义Bean一样使用@Component进行管理。
+
+非自定义Bean要通过工厂的方式进行实例化，使用@Bean标注方法即可。@Bean的属性为beanName，如不指定为当前工厂方法名称
+
+PS：工厂方法所在的类必须要被Spring管理
+
+```java
+// 将方法返回值Bean实例以@Bean注解指定的名称存储到Spring容器中
+@Bean("dataSource")
+public DataSource dataSource(){
+    DruidDataSource dataSource = new DruidDataSource();
+    dataSource.setDriverClassName("com.mysql.jdbc.Driver");
+    dataSource.setUrl("jdbc:mysql://localhost:3306/mybatis");
+    dataSource.setUsername("root");
+    dataSource.setPassword("root");
+    return dataSource;
+}
+```
+
+如果@Bean工厂方法需要参数的话，则有如下几种注入方式：
+
+- 使用@Autowired根据类型自动进行Bean的匹配
+- 使用@Qualifier根据名称进行Bean的匹配
+- 使用@Value根据名称进行普通数据类型匹配
+
+```java
+@Bean
+@Autowired // 根据类型匹配参数
+public Object objectDemo01(UserDao userDao){
+    System.out.println(userDao);
+    return new Object();
+}
+@Bean
+public Object objectDemo02(@Qualifier("userDao") UserDao userDao,
+                           @Value("${jdbc.username}") String username){
+    System.out.println(userDao);
+    System.out.println(username);
+    return new Object();
+}
+```
+
+## 配置类注解开发
+
+@Component注解替代`<bean>`标签
+
+像`<import>`、`<context:componentScan>`等非`<bean>`标签，可以通过**定义一个配置类替代原有的xml配置文件，在配置类上使用注解开发**
+
+- **@Configuration**
+
+  标识的类为配置类，替代原有xml配置文件，该注解第一个作用就是标识该类为一个配置类；第二个作用就是具备@Component作用
+
+  ```java
+  @Configuration
+  public class ApplicationContextConfig {}
+  ```
+
+- **@ComponentScan**
+
+  组件扫描配置，替代原有xml文件中的`<context:component-scan base-package=""/>`
+
+  ```java
+  @Configuration
+  @ComponentScan({"com.service","com.dao"})
+  public class ApplicationContextConfig {}
+  ```
+
+  base-package的配置方式：
+
+  - 指定一个或多个包名：扫描指定包及其子包下使用注解的类
+  - 不配置包名：扫描当前@ComponentScan注解配置类所在包及其子包下的类
+
+- **@PropertySource**
+
+  加载外部properties资源配置，替代原有xml中的`<context:property-placeholder location="">`配置
+
+  ```java
+  @Configuration
+  @ComponentScan
+  @PropertySource({"classpath:jdbc.properties","classpath:xxx.properties"})
+  public class ApplicationContextConfig {}
+  ```
+
+- **@Import**
+
+  加载其他配置类，替代原有xml中的`<import resource="classpath:beans.xml">`配置
+
+  ```java
+  @Configuration
+  @ComponentScan
+  @PropertySource("classpath:jdbc.properties")
+  @Import(OtherConfig.class)
+  public class ApplicationContextConfig {}
+  ```
+
+
+## 其他注解
+
+### @Primary
+
+@Primary注解是Spring框架提供的一种注解，用于在多个候选项中指定主要的Bean定义。
+
+当存在多个同一类型的Bean时，使用@Primary注解可以标识其中一个Bean作为首选项，以便在自动装配时选择它作为默认的依赖项。
+
+```java
+@Component
+@Primary
+public class MyBean implements MyInterface {
+    // ...
+}
+```
+
+在上述示例中，MyBean类被标记为@Primary，意味着它是MyInterface类型的主要候选项。当其他组件需要自动装配一个MyInterface类型的依赖项时，Spring会优先选择MyBean作为默认的注入目标。
+
+需要注意的是，@Primary注解只能应用于一个Bean定义，不能同时用于多个Bean。如果存在多个@Primary注解的Bean定义，或者没有使用@Primary注解的Bean定义，则会抛出异常，因为无法确定主要的候选项。
+
+### @Profile
+
+@Profile 注解的作用同于xml配置时学习profile属性，是进行环境切换使用的
+
+```xml
+<beans profile="test">
+```
+
+注解@Profile 标注在类或方法上，标注当前产生的Bean从属于哪个环境。只有激活了当前环境，被标注的Bean才能被注册到Spring容器里，不指定环境的Bean，任何环境下都能注册到Spring容器里
+
+```java
+// 仅在test环境下才会被装配的bean
+@Repository("userDao")
+@Profile("test")
+public class UserDaoImpl implements UserDao{}
+
+@Repository("userDao2")
+public class UserDaoImpl2 implements UserDao{}
+```
+
+可以使用以下两种方式指定被激活的环境：
+
+- 使用命令行动态参数，虚拟机参数位置加载 `-Dspring.profiles.active=test`
+- 使用代码的方式设置环境变量 `System.setProperty("spring.profiles.active","test")`
+
+# 【AOP】
+
+## 概念
+
+AOP（面向切面编程），利用AOP可以对业务逻辑的各个部分进行隔离，从而使得业务逻辑各部分之间的耦合度降低，提高程序的可重用性，同时提高了开发的效率。
+
+**不通过修改源代码的方式，在主干功能里添加新的功能**
+
+**主要功能：**
+
+日志记录，性能统计，安全控制，事务处理，异常处理等等。
+
+**主要意图：**
+
+将日志记录，性能统计，安全控制，事务处理，异常处理等代码从业务逻辑代码中划分出来，通过对这些行为的分离，我们希望可以将它们独立到非指导业务逻辑的方法中，进而改变这些行为的时候不影响业务逻辑的代码。
+
+**应用举例：**
+
+在登录过程中，希望加入一个权限判断的功能
+
+- 原始方式：修改源代码
+
+  ```java
+  if 管理员
+  else if 普通用户
+  ```
+
+- AOP模式：添加一个权限判断模块，不需要修改源代码
+
+## AOP底层原理
+
+AOP底层使用动态代理:
+
+- 有接口的情况，使用JDK动态代理
+  - 创建接口实现类代理对象（UserDaoImpl），增强类的方法
+- 没有接口的情况，使用CGLIB动态代理
+  - 创建子类的代理对象(UserDao)，增强类的方法
+
+### JDK动态代理
+
+- **使用JDK动态代理，使用Proxy类里面的方法创建代理对象**
+
+  调用`newProxyInstance`方法：
+
+  ```java
+  static Object newProxyInstance(ClassLoader loader, Clazz<?>[] interfaces, InvocationHandler h);
+  ```
+
+  方法中有三个参数
+
+  - 第一个参数`ClassLoader`：类加载器
+  - 第二个参数`Clazz<?>[]`：增强方法所在的类，这个类实现的**接口**。它支持多个接口
+  - 第三个参数`InvocationHandler`：实现接口`InvocationHandler`，创建代理对象，写增强的方法
+
+- **编写JDK动态代理代码：**
+
+  1. 创建接口：首先需要定义一个接口，该接口包含了目标对象和代理对象都需要实现的方法。
+
+     ```java
+     // 定义接口
+     interface MyInterface {
+         void doSomething();
+     }
+     ```
+
+  2. 创建目标对象：实现上述接口的类即为目标对象，即要被代理的对象。
+
+     ```java
+     // 目标对象
+     class MyObject implements MyInterface {
+         public void doSomething() {
+             System.out.println("Doing something...");
+         }
+     }
+     ```
+     
+  3. 创建代理对象/代理对象处理器：
+  
+     > JDK动态代理：使用`java.lang.reflect.Proxy`类和`java.lang.reflect.InvocationHandler`接口来创建代理对象。
+     >
+     > 需要提供一个实现InvocationHandler接口的代理处理器，该处理器负责拦截方法调用并进行额外的操作。
+
+     ```java
+     // 代理处理器
+     class MyProxyHandler implements InvocationHandler {
+         private Object target;
+     	
+         // 3.1 配置代理对象：将代理对象与目标对象进行关联。这可以通过设置代理对象的目标对象属性或传递目标对象给代理构造函数来完成。
+         public MyProxyHandler(Object target) {
+             this.target = target;
+         }
+     
+         // 3.2 使用代理对象：通过代理对象调用方法。在方法调用过程中，代理对象会拦截方法调用并根据需要进行额外的处理，例如记录日志、权限验证等。
+         public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+             // 额外操作
+             System.out.println("Before method invocation");
+             // 调用目标对象方法
+             Object result = method.invoke(target, args);
+             // 额外操作
+             System.out.println("After method invocation");
+             return result;
+         }
+     }
+     ```
+  
+  4. 执行
+  
+     ```java
+     public class Main {
+         public static void main(String[] args) {
+             // 创建目标对象
+             MyObject target = new MyObject();
+     
+             // 创建代理处理器
+             MyProxyHandler handler = new MyProxyHandler(target);
+     
+             // 创建代理对象
+             MyInterface proxy = (MyInterface) Proxy.newProxyInstance(
+                 target.getClass().getClassLoader(),
+                 target.getClass().getInterfaces(),
+                 handler
+             );
+     
+             // 使用代理对象调用方法
+             proxy.doSomething();
+         }
+     }
+     ```
+
